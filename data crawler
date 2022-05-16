@@ -10,7 +10,7 @@ from os.path import isfile,join
 import threading
 import time
 
-#讀取檔案裡的錢包/專案契約地址
+#讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 opensea_totaladdress = "C:\\Users\\Fred\\Desktop\\opensea_wallet\\coolcatsnft_補跑清單0513.xlsx"
 xw.Book(opensea_totaladdress).sheets[0].activate()
 df_opensea_totaladdress = xw.Range(xw.Range("A1").expand().address).options(pd.DataFrame,index=False).value
@@ -23,6 +23,8 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 #針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
+#抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+#抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
 def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,thread_n,next_params):
     global data_lists
     global data_lista
