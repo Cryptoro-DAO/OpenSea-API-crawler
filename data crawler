@@ -22,9 +22,11 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-#針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
-#抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-#抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+'''
+針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
+抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+'''
 def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,thread_n,next_params):
     global data_lists
     global data_lista
@@ -176,7 +178,7 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
         col = ["event_timestamp","event_type","token_id","num_sales","listing_time","token_owner_address","token_seller_address","deal_price", \
                "payment_token_symbol","payment_token_decimals","payment_token_usdprice","quantity","starting_price","ending_price","approved_account", \
                    "asset_bundle","auction_type","bid_amount","transaction_hash","block_hash","block_number","is_private","duration","created_date","collection_slug","contract_address","wallet_address_input","pages","msg","next_param"]
-        #存檔
+        #存檔，自己取名
         if (int(m)%50 == 0 and int(m)>0) or m == range_run[-1]:
             if (thread_n % 2) == 0:
                 result_dfa = pd.DataFrame(data_lis, columns = col)
