@@ -10,8 +10,11 @@ import threading
 import time
 
 # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
+# @TODO: move this to __main__ ?
 opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
 input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_address"].array
+# api_v1 = "https://api.opensea.io/api/v1"
+# events_api = "https://api.opensea.io/api/v1/events"
 
 
 # 將檔案裡的數量分拆
@@ -125,6 +128,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         contract_address = event["contract_address"]
                         wallet_address_input = account_addresses[m]
 
+                        # @TODO: change this to dict
                         data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
                                 token_seller_address, deal_price,
                                 payment_token_symbol, payment_token_decimals, payment_token_usdprice, quantity,
@@ -178,6 +182,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     data_listb.append((rerun_range, next_param))
                 return "fail"
 
+        # 存檔，自己取名
         col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
                "token_seller_address", "deal_price",
                "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
@@ -185,7 +190,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
                "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
                "pages", "msg", "next_param"]
-        # 存檔，自己取名
         if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
             if (thread_n % 2) == 0:
                 result_dfa = pd.DataFrame(data_lis, columns=col)
