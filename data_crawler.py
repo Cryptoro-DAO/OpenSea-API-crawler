@@ -293,13 +293,13 @@ if __name__ == '__main__':
         globals()["datalist%s" % n] = []
         if (n % 2) == 0:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-            process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1,
-            event_type, n, ""))
+                process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1,
+                event_type, n, ""))
             globals()["add_thread%s" % n].start()
         else:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-            process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2,
-            event_type, n, ""))
+                process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2,
+                event_type, n, ""))
             globals()["add_thread%s" % n].start()
 
     for nn in range(thread):
