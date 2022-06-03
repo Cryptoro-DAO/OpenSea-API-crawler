@@ -11,7 +11,7 @@ import threading
 import time
 
 #讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
-opensea_totaladdress = "C:\\Users\\Fred\\Desktop\\opensea_wallet\\coolcatsnft_補跑清單0513.xlsx"
+opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
 xw.Book(opensea_totaladdress).sheets[0].activate()
 df_opensea_totaladdress = xw.Range(xw.Range("A1").expand().address).options(pd.DataFrame,index=False).value
 
@@ -182,11 +182,13 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
             if (thread_n % 2) == 0:
                 result_dfa = pd.DataFrame(data_lis, columns = col)
                 result_dfa = result_dfa.reset_index(drop=True)
-                result_dfa.to_excel("C:\\Users\\Fred\\Desktop\\" + "coolcatsnft_0_" + str(m) + ".xlsx",encoding = "utf_8_sig")
+                result_dfa.to_excel(os.path.join(os.getcwd(), "coolcatsnft_0_" + str(m) + ".xlsx"),
+                                    encoding = "utf_8_sig")
             else:
                 result_dfb = pd.DataFrame(data_lis, columns = col)
                 result_dfb = result_dfb.reset_index(drop=True)
-                result_dfb.to_excel("C:\\Users\\Fred\\Desktop\\" + "coolcatsnft_1_" + str(m) + ".xlsx",encoding = "utf_8_sig")
+                result_dfb.to_excel(os.path.join(os.getcwd(), "coolcatsnft_1_" + str(m) + ".xlsx"),
+                                    encoding = "utf_8_sig")
         
     print("End   : " + str(datetime.datetime.now()))
     return "success"
