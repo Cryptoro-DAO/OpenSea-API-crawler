@@ -11,7 +11,7 @@ import time
 
 #讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
-df_opensea_totaladdress = pd.read_excel(opensea_totaladdress)
+input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_address"].array
 
 #將檔案裡的數量分拆
 def chunks(lst, n):
@@ -24,7 +24,7 @@ def chunks(lst, n):
 抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
 抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
 '''
-def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,thread_n,next_params):
+def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_params):
     global data_lists
     global data_lista
     global data_listb
@@ -34,7 +34,7 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
     headers = {"X-API-KEY": api_key}
     for m in range_run:
         
-        wallet_address = df_opensea_totaladdress["token_owner_address"][m]
+        wallet_address = account_addresses[m]
         nextpage = True
         count = 0
         
@@ -117,7 +117,7 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
                         created_date = result_a_collection_events["asset_events"][i]["created_date"]
                         
                         contract_address = result_a_collection_events["asset_events"][i]["contract_address"]
-                        wallet_address_input = df_opensea_totaladdress["token_owner_address"][m]
+                        wallet_address_input = account_addresses[m]
                         pagesnum = count
                         
                         data = [event_timestamp,event_type,token_id,num_sales,listing_time,token_owner_address,token_seller_address,deal_price, \
@@ -130,7 +130,7 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
                         
                 else:
                     
-                    wallet_address_input = df_opensea_totaladdress["token_owner_address"][m]
+                    wallet_address_input = account_addresses[m]
                     pagesnum = count
                     #pages
                     data = ["","","","","","","","","","","","","","","",
@@ -153,7 +153,7 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
                 count = count+1
                 
         except:
-            wallet_address_input = df_opensea_totaladdress["token_owner_address"][m]
+            wallet_address_input = account_addresses[m]
             pagesnum = count
             data = ["","","","","","","","","","","","","","","",
                     "","","","","","","","","","","",wallet_address_input,pagesnum,"SOMTHING WRONG",next_param]
@@ -265,10 +265,10 @@ if __name__  == '__main__':
     for n in range(thread):
         globals()["datalist%s" %n] = []
         if (n % 2) == 0:
-            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc,args = (process_run,range_collection[n],df_opensea_totaladdress,globals()["datalist%s" %n],api_key1,event_type,n,""))
+            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc, args = (process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1, event_type, n, ""))
             globals()["add_thread%s" %n].start()
         else:
-            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc,args = (process_run,range_collection[n],df_opensea_totaladdress,globals()["datalist%s" %n],api_key2,event_type,n,""))
+            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc, args = (process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2, event_type, n, ""))
             globals()["add_thread%s" %n].start()
 
 
