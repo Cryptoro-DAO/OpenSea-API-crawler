@@ -143,16 +143,13 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
 
                         # for debugging
-                        # if pagesnum == 2:
+                        # if page_num == 2:
                         #     nextpage = False
 
                 else:
 
-                    wallet_address_input = account_addresses[m]
-
-                    # pages
                     data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                            "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, page_num,
+                            "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num,
                             "Fail-no asset_events", next_param]
                     data_lis.append(data)
                     data_lists.append(data)
@@ -168,9 +165,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     nextpage = False
 
         except:
-            wallet_address_input = account_addresses[m]
             data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, page_num, "SOMETHING WRONG",
+                    "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, "SOMETHING WRONG",
                     next_param]
 
             data_lis.append(data)
