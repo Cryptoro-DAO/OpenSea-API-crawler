@@ -42,6 +42,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         nextpage = True
         count = 0
 
+        # create a subdirectory to save response json object
+        output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
+        if not os.path.isdir(os.path.join(output_dir)):
+            os.makedirs(output_dir)
+
         if next_params:
             next_param = next_params
         else:
@@ -55,6 +60,9 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                              + "&cursor=" + next_param
                 response = requests.get(events_api, headers=headers)
                 response_json = response.json()
+
+                with open(os.path.join(output_dir, str(count) + '.json'), 'w') as f:
+                    json.dump(response_json, fp=f)
 
                 if "asset_events" in response_json.keys():
 
