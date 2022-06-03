@@ -140,10 +140,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         data_lists.append(data)
                         print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
 
-                        # for debugging
-                        # if page_num == 2:
-                        #     nextpage = False
-
                 else:
 
                     data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -160,6 +156,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     page_num += 1
                 else:
                     next_param = ""
+                    nextpage = False
+
+                # for debugging
+                if page_num == 2:
                     nextpage = False
 
         except:
