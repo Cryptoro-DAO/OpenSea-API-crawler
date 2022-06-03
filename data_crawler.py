@@ -166,7 +166,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 else:
                     next_param = ""
                     nextpage = False
-                count = count + 1
+                count += 1
 
         except:
             wallet_address_input = account_addresses[m]
@@ -238,7 +238,7 @@ def controlfunc(process_run, range_run, df_opensea_totaladdress, data_lis, api_k
                     print("Rerun1 is preparing " + str(count))
                     s_f = process_run(range1_rerun, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n,
                                       data_lista[-1][1])
-                    count = count + 1
+                    count += 1
             else:
                 if data_listb:
                     range2_rerun = data_listb[-1][0]
@@ -246,7 +246,7 @@ def controlfunc(process_run, range_run, df_opensea_totaladdress, data_lis, api_k
                     print("Rerun2 is preparing " + str(count))
                     s_f = process_run(range2_rerun, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n,
                                       data_listb[-1][1])
-                    count = count + 1
+                    count += 1
 
 
 '''
