@@ -5,15 +5,13 @@ import pandas as pd
 import datetime
 import os
 import pathlib
-import xlwings as xw
 from os.path import isfile,join
 import threading
 import time
 
 #讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
-xw.Book(opensea_totaladdress).sheets[0].activate()
-df_opensea_totaladdress = xw.Range(xw.Range("A1").expand().address).options(pd.DataFrame,index=False).value
+df_opensea_totaladdress = pd.read_excel(opensea_totaladdress)
 
 #將檔案裡的數量分拆
 def chunks(lst, n):
