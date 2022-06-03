@@ -245,8 +245,17 @@ if __name__  == '__main__':
     divide = 2
     range_s = 0
     range_e = 2
-    api_key = ""
-    api_key2 = ""
+
+    # read API keys from file
+    # each line in file is a key value pair separated by `=`
+    #   key=key_value
+    secrets = {}
+    with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
+        for line in f:
+            (k, v) = line.rstrip().split('=')
+            secrets[k] = v
+    api_key1 = secrets['api_key1']
+    api_key2 = secrets['api_key2']
     
     data_lists = []
     data_lista = []
@@ -258,7 +267,7 @@ if __name__  == '__main__':
     for n in range(thread):
         globals()["datalist%s" %n] = []
         if (n % 2) == 0:
-            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc,args = (process_run,range_collection[n],df_opensea_totaladdress,globals()["datalist%s" %n],api_key,event_type,n,""))
+            globals()["add_thread%s" %n] = threading.Thread(target = controlfunc,args = (process_run,range_collection[n],df_opensea_totaladdress,globals()["datalist%s" %n],api_key1,event_type,n,""))
             globals()["add_thread%s" %n].start()
         else:
             globals()["add_thread%s" %n] = threading.Thread(target = controlfunc,args = (process_run,range_collection[n],df_opensea_totaladdress,globals()["datalist%s" %n],api_key2,event_type,n,""))
