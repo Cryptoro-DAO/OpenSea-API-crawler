@@ -40,7 +40,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
         wallet_address = account_addresses[m]
         nextpage = True
-        count = 0
+        page_num = 0
 
         # create a subdirectory to save response json object
         output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
@@ -61,7 +61,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 response = requests.get(events_api, headers=headers)
                 response_json = response.json()
 
-                with open(os.path.join(output_dir, str(count) + '.json'), 'w') as f:
+                with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
                     json.dump(response_json, fp=f)
 
                 if "asset_events" in response_json.keys():
@@ -133,7 +133,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
                         contract_address = event["contract_address"]
                         wallet_address_input = account_addresses[m]
-                        pagesnum = count
+
 
                         data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
                                 token_seller_address, deal_price,
@@ -141,11 +141,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                 starting_price, ending_price, approved_account,
                                 asset_bundle, auction_type, bid_amount, transaction_hash, block_hash, block_number,
                                 is_private, duration, created_date, collection_slug, contract_address,
-                                wallet_address_input, pagesnum, "success", next_param]
+                                wallet_address_input, page_num, "success", next_param]
 
                         data_lis.append(data)
                         data_lists.append(data)
-                        print("wallet: " + str(m) + " , pages: " + str(count) + ", " + event_timestamp)
+                        print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
 
                         # for debugging
                         # if pagesnum == 2:
@@ -154,10 +154,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 else:
 
                     wallet_address_input = account_addresses[m]
-                    pagesnum = count
+
                     # pages
                     data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                            "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, pagesnum,
+                            "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, page_num,
                             "Fail-no asset_events", next_param]
                     data_lis.append(data)
                     data_lists.append(data)
@@ -166,21 +166,16 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     nextpage = False
 
                 if "next" in response_json.keys():
-                    if response_json["next"]:
-                        next_param = response_json["next"]
-                    else:
-                        next_param = ""
-                        nextpage = False
+                    next_param = response_json["next"]
+                    page_num += 1
                 else:
                     next_param = ""
                     nextpage = False
-                count += 1
 
         except:
             wallet_address_input = account_addresses[m]
-            pagesnum = count
             data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, pagesnum, "SOMETHING WRONG",
+                    "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, page_num, "SOMETHING WRONG",
                     next_param]
 
             data_lis.append(data)
