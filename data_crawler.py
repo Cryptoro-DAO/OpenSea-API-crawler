@@ -28,7 +28,7 @@ def chunks(lst, n):
 '''
 
 
-def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_params):
+def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param):
     # @TODO why global scope?
     global data_lists
     global data_lista
@@ -46,11 +46,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
         if not os.path.isdir(os.path.join(output_dir)):
             os.makedirs(output_dir)
-
-        if next_params:
-            next_param = next_params
-        else:
-            next_param = ""
 
         try:
             while nextpage:
@@ -207,13 +202,18 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     return "success"
 
 
-def retrieve_events(api_key, event_type, next_param, wallet_address):
+def retrieve_events(api_key, event_type, cursor, account_address):
     headers = {"X-API-KEY": api_key}
 
-    events_api = "https://api.opensea.io/api/v1/events?account_address=" + wallet_address \
+    if cursor is None:
+        cursor = ""
+
+    # @TODO: make this more flexible; able to accept more parameters
+    events_api = "https://api.opensea.io/api/v1/events?account_address=" + account_address \
                  + "&event_type=" + event_type \
-                 + "&cursor=" + next_param
+                 + "&cursor=" + cursor
     response = requests.get(events_api, headers=headers)
+
     return response.json()
 
 
