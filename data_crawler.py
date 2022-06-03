@@ -14,7 +14,6 @@ import time
 opensea_totaladdress = "C:\\Users\\Fred\\Desktop\\opensea_wallet\\coolcatsnft_補跑清單0513.xlsx"
 xw.Book(opensea_totaladdress).sheets[0].activate()
 df_opensea_totaladdress = xw.Range(xw.Range("A1").expand().address).options(pd.DataFrame,index=False).value
-desktop = os.path.join(os.path.join(os.environ["USERPROFILE"]),"Desktop")
 
 #將檔案裡的數量分拆
 def chunks(lst, n):
