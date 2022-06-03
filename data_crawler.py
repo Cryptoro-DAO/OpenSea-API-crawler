@@ -172,7 +172,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             wallet_address_input = account_addresses[m]
             pagesnum = count
             data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, pagesnum, "SOMTHING WRONG",
+                    "", "", "", "", "", "", "", "", "", "", "", wallet_address_input, pagesnum, "SOMETHING WRONG",
                     next_param]
 
             data_lis.append(data)
