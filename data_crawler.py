@@ -29,13 +29,13 @@ def chunks(lst, n):
 
 
 def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_params):
+    # @TODO why global scope?
     global data_lists
     global data_lista
     global data_listb
     global data_list0
     global data_list1
 
-    headers = {"X-API-KEY": api_key}
     for m in range_run:
 
         wallet_address = account_addresses[m]
@@ -55,18 +55,14 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         try:
             while nextpage:
 
-                events_api = "https://api.opensea.io/api/v1/events?account_address=" + wallet_address\
-                             + "&event_type=" + event_type\
-                             + "&cursor=" + next_param
-                response = requests.get(events_api, headers=headers)
-                response_json = response.json()
+                events = retrieve_events(api_key, event_type, next_param, wallet_address)
 
                 with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
-                    json.dump(response_json, fp=f)
+                    json.dump(events, fp=f)
 
-                if "asset_events" in response_json.keys():
+                if "asset_events" in events.keys():
 
-                    asset_events = response_json["asset_events"]
+                    asset_events = events["asset_events"]
                     for event in asset_events:
 
                         if event["asset"]:
@@ -164,8 +160,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     print(str(m) + " no asset_events!")
                     nextpage = False
 
-                if "next" in response_json.keys():
-                    next_param = response_json["next"]
+                next_param = events["next"]
+                if next_param is not None:
                     page_num += 1
                 else:
                     next_param = ""
@@ -213,6 +209,16 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
     print("End   : " + str(datetime.datetime.now()))
     return "success"
+
+
+def retrieve_events(api_key, event_type, next_param, wallet_address):
+    headers = {"X-API-KEY": api_key}
+
+    events_api = "https://api.opensea.io/api/v1/events?account_address=" + wallet_address \
+                 + "&event_type=" + event_type \
+                 + "&cursor=" + next_param
+    response = requests.get(events_api, headers=headers)
+    return response.json()
 
 
 # process_run的外層函數，當執行中斷時自動繼續往下執行
