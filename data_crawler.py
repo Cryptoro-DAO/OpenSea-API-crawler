@@ -182,11 +182,11 @@ def process_run(range_run,df_opensea_totaladdress,data_lis,api_key,event_type,th
             if (thread_n % 2) == 0:
                 result_dfa = pd.DataFrame(data_lis, columns = col)
                 result_dfa = result_dfa.reset_index(drop=True)
-                result_dfa.to_excel("C:\\Users\\Fred\\Desktop + "\\coolcatsnft_0_" + str(m) + ".xlsx",encoding = "utf_8_sig")
+                result_dfa.to_excel("C:\\Users\\Fred\\Desktop\\" + "coolcatsnft_0_" + str(m) + ".xlsx",encoding = "utf_8_sig")
             else:
                 result_dfb = pd.DataFrame(data_lis, columns = col)
                 result_dfb = result_dfb.reset_index(drop=True)
-                result_dfb.to_excel("C:\\Users\\Fred\\Desktop + "\\coolcatsnft_1_" + str(m) + ".xlsx",encoding = "utf_8_sig")
+                result_dfb.to_excel("C:\\Users\\Fred\\Desktop\\" + "coolcatsnft_1_" + str(m) + ".xlsx",encoding = "utf_8_sig")
         
     print("End   : " + str(datetime.datetime.now()))
     return "success"
