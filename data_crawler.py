@@ -134,7 +134,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         contract_address = event["contract_address"]
                         wallet_address_input = account_addresses[m]
 
-
                         data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
                                 token_seller_address, deal_price,
                                 payment_token_symbol, payment_token_decimals, payment_token_usdprice, quantity,
@@ -217,13 +216,13 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
 
 # process_run的外層函數，當執行中斷時自動繼續往下執行
-def controlfunc(process_run, range_run, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n, next_params):
+def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param):
     global data_lista
     global data_listb
     global data_list0
     global data_list1
 
-    s_f = process_run(range_run, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n, next_params)
+    s_f = process_run(range_run, addresses, data_lis, api_key, event_type, thread_n, next_param)
 
     rerun = True
     count = 0
@@ -239,7 +238,7 @@ def controlfunc(process_run, range_run, df_opensea_totaladdress, data_lis, api_k
                     # break
                     time.sleep(60)
                     print("Rerun1 is preparing " + str(count))
-                    s_f = process_run(range1_rerun, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n,
+                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n,
                                       data_lista[-1][1])
                     count += 1
             else:
@@ -247,7 +246,7 @@ def controlfunc(process_run, range_run, df_opensea_totaladdress, data_lis, api_k
                     range2_rerun = data_listb[-1][0]
                     time.sleep(60)
                     print("Rerun2 is preparing " + str(count))
-                    s_f = process_run(range2_rerun, df_opensea_totaladdress, data_lis, api_key, event_type, thread_n,
+                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n,
                                       data_listb[-1][1])
                     count += 1
 
