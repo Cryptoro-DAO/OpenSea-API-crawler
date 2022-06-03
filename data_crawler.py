@@ -126,7 +126,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         created_date = event["created_date"]
 
                         contract_address = event["contract_address"]
-                        wallet_address_input = account_addresses[m]
 
                         # @TODO: change this to dict
                         data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
@@ -135,7 +134,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                 starting_price, ending_price, approved_account,
                                 asset_bundle, auction_type, bid_amount, transaction_hash, block_hash, block_number,
                                 is_private, duration, created_date, collection_slug, contract_address,
-                                wallet_address_input, page_num, "success", next_param]
+                                wallet_address, page_num, "success", next_param]
 
                         data_lis.append(data)
                         data_lists.append(data)
