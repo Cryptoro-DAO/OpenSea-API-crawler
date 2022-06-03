@@ -54,87 +54,83 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                              + "&event_type=" + event_type\
                              + "&cursor=" + next_param
                 response = requests.get(events_api, headers=headers)
-                result_a_collection_events = response.json()
+                response_json = response.json()
 
-                if "asset_events" in result_a_collection_events.keys() and result_a_collection_events["asset_events"]:
+                if "asset_events" in response_json.keys():
 
-                    for i in range(len(result_a_collection_events["asset_events"])):
+                    asset_events = response_json["asset_events"]
+                    for event in asset_events:
 
-                        if result_a_collection_events["asset_events"][i]["asset"]:
-                            num_sales = result_a_collection_events["asset_events"][i]["asset"]["num_sales"]
-                            token_id = result_a_collection_events["asset_events"][i]["asset"]["token_id"]
-                            if result_a_collection_events["asset_events"][i]["asset"]["owner"]:
-                                token_owner_address = result_a_collection_events["asset_events"][i]["asset"]["owner"][
-                                    "address"]
+                        if event["asset"]:
+                            num_sales = event["asset"]["num_sales"]
+                            token_id = event["asset"]["token_id"]
+                            if event["asset"]["owner"]:
+                                token_owner_address = event["asset"]["owner"]["address"]
                             else:
-                                token_owner_address = result_a_collection_events["asset_events"][i]["asset"]["owner"]
+                                token_owner_address = event["asset"]["owner"]
                         else:
                             num_sales = ""
                             token_id = ""
                             token_owner_address = ""
 
-                        if result_a_collection_events["asset_events"][i]["asset_bundle"]:
-                            asset_bundle = result_a_collection_events["asset_events"][i]["asset_bundle"]
+                        if event["asset_bundle"]:
+                            asset_bundle = event["asset_bundle"]
                         else:
                             asset_bundle = ""
 
-                        event_timestamp = result_a_collection_events["asset_events"][i]["event_timestamp"]
-                        event_type = result_a_collection_events["asset_events"][i]["event_type"]
+                        event_timestamp = event["event_timestamp"]
+                        event_type = event["event_type"]
 
-                        listing_time = result_a_collection_events["asset_events"][i]["listing_time"]
+                        listing_time = event["listing_time"]
 
-                        if result_a_collection_events["asset_events"][i]["seller"]:
-                            token_seller_address = result_a_collection_events["asset_events"][i]["seller"]["address"]
+                        if event["seller"]:
+                            token_seller_address = event["seller"]["address"]
                         else:
                             token_seller_address = ""
 
-                        if result_a_collection_events["asset_events"][i]["total_price"]:
-                            deal_price = int(result_a_collection_events["asset_events"][i]["total_price"])
+                        if event["total_price"]:
+                            deal_price = int(event["total_price"])
                         else:
                             deal_price = ""
 
-                        if result_a_collection_events["asset_events"][i]["payment_token"]:
-                            payment_token_symbol = result_a_collection_events["asset_events"][i]["payment_token"][
-                                "symbol"]
-                            payment_token_decimals = result_a_collection_events["asset_events"][i]["payment_token"][
-                                "decimals"]
-                            payment_token_usdprice = np.float64(
-                                result_a_collection_events["asset_events"][i]["payment_token"]["usd_price"])
+                        if event["payment_token"]:
+                            payment_token_symbol = event["payment_token"]["symbol"]
+                            payment_token_decimals = event["payment_token"]["decimals"]
+                            payment_token_usdprice = np.float64(event["payment_token"]["usd_price"])
                         else:
-                            payment_token_symbol = result_a_collection_events["asset_events"][i]["payment_token"]
-                            payment_token_decimals = result_a_collection_events["asset_events"][i]["payment_token"]
-                            payment_token_usdprice = result_a_collection_events["asset_events"][i]["payment_token"]
+                            payment_token_symbol = event["payment_token"]
+                            payment_token_decimals = event["payment_token"]
+                            payment_token_usdprice = event["payment_token"]
 
-                        quantity = result_a_collection_events["asset_events"][i]["quantity"]
-                        starting_price = result_a_collection_events["asset_events"][i]["starting_price"]
-                        ending_price = result_a_collection_events["asset_events"][i]["ending_price"]
-                        approved_account = result_a_collection_events["asset_events"][i]["approved_account"]
-                        auction_type = result_a_collection_events["asset_events"][i]["auction_type"]
-                        bid_amount = result_a_collection_events["asset_events"][i]["bid_amount"]
+                        quantity = event["quantity"]
+                        starting_price = event["starting_price"]
+                        ending_price = event["ending_price"]
+                        approved_account = event["approved_account"]
+                        auction_type = event["auction_type"]
+                        bid_amount = event["bid_amount"]
 
-                        if result_a_collection_events["asset_events"][i]["transaction"]:
-                            transaction_hash = result_a_collection_events["asset_events"][i]["transaction"][
-                                "transaction_hash"]
-                            block_hash = result_a_collection_events["asset_events"][i]["transaction"]["block_hash"]
-                            block_number = result_a_collection_events["asset_events"][i]["transaction"]["block_number"]
+                        if event["transaction"]:
+                            transaction_hash = event["transaction"]["transaction_hash"]
+                            block_hash = event["transaction"]["block_hash"]
+                            block_number = event["transaction"]["block_number"]
                         else:
                             transaction_hash = ""
                             block_hash = ""
                             block_number = ""
 
-                        collection_slug = result_a_collection_events["asset_events"][i]["collection_slug"]
-                        is_private = result_a_collection_events["asset_events"][i]["is_private"]
-                        duration = result_a_collection_events["asset_events"][i]["duration"]
-                        created_date = result_a_collection_events["asset_events"][i]["created_date"]
+                        collection_slug = event["collection_slug"]
+                        is_private = event["is_private"]
+                        duration = event["duration"]
+                        created_date = event["created_date"]
 
-                        contract_address = result_a_collection_events["asset_events"][i]["contract_address"]
+                        contract_address = event["contract_address"]
                         wallet_address_input = account_addresses[m]
                         pagesnum = count
 
                         data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
-                                token_seller_address, deal_price, \
+                                token_seller_address, deal_price,
                                 payment_token_symbol, payment_token_decimals, payment_token_usdprice, quantity,
-                                starting_price, ending_price, approved_account, \
+                                starting_price, ending_price, approved_account,
                                 asset_bundle, auction_type, bid_amount, transaction_hash, block_hash, block_number,
                                 is_private, duration, created_date, collection_slug, contract_address,
                                 wallet_address_input, pagesnum, "success", next_param]
@@ -161,9 +157,9 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     print(str(m) + " no asset_events!")
                     nextpage = False
 
-                if "next" in result_a_collection_events.keys():
-                    if result_a_collection_events["next"]:
-                        next_param = result_a_collection_events["next"]
+                if "next" in response_json.keys():
+                    if response_json["next"]:
+                        next_param = response_json["next"]
                     else:
                         next_param = ""
                         nextpage = False
