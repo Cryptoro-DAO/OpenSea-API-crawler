@@ -50,9 +50,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         try:
             while nextpage:
 
-                events_api = "https://api.opensea.io/api/v1/events?account_address=" + wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+                events_api = "https://api.opensea.io/api/v1/events?account_address=" + wallet_address\
+                             + "&event_type=" + event_type\
+                             + "&cursor=" + next_param
                 response = requests.get(events_api, headers=headers)
-                result_a_collection_events = json.loads(response.text)
+                result_a_collection_events = response.json()
 
                 if "asset_events" in result_a_collection_events.keys() and result_a_collection_events["asset_events"]:
 
