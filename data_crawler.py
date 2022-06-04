@@ -31,19 +31,19 @@ def chunks(lst, n):
 '''
 
 
-def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param):
+def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param, page_num=0):
     # @TODO why global scope?
     global data_lists
     global data_lista
     global data_listb
     global data_list0
     global data_list1
+    status = "success"
 
     for m in range_run:
 
         wallet_address = account_addresses[m]
         nextpage = True
-        page_num = 0
 
         # create a subdirectory to save response json object
         output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
@@ -54,7 +54,9 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             while nextpage:
 
                 events = retrieve_events(api_key,
-                                         event_type=event_type, cursor=next_param, account_address=wallet_address)
+                                         event_type=event_type,
+                                         cursor=next_param,
+                                         account_address=wallet_address).json()
 
                 with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
                     json.dump(events, fp=f)
@@ -142,7 +144,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
 
                 else:
-
+                    # @TODO: except KeyError
                     data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
                             "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num,
                             "Fail-no asset_events", next_param]
@@ -161,10 +163,30 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     nextpage = False
 
                 # for debugging
-                if page_num == 2:
-                    nextpage = False
+                # @TODO: remember to comment or remove for production
+                # if page_num == 2:
+                #     nextpage = False
 
-        except:
+        except requests.exceptions.RequestException as e:
+            print(repr(e))
+            # @TODO: bugfix 429 Client Error: Too Many Requests for url
+            # if e.response.status_code == 429:
+            #     time.sleep(60)
+            msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
+            data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+                    "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, msg, next_param]
+            data_lis.append(data)
+            data_lists.append(data)
+            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+            rerun_range = range(m, range_run[-1] + 1)
+            if (thread_n % 2) == 0:
+                data_lista.append((rerun_range, next_param, page_num))
+            else:
+                data_listb.append((rerun_range, next_param, page_num))
+            status = "fail"
+        # @TODO: remove this catch all Exception
+        except Exception as e:
+            print(repr(e.args))
             data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
                     "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, "SOMETHING WRONG",
                     next_param]
@@ -173,38 +195,38 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             data_lists.append(data)
 
             if m == range_run[-1] + 1:
-                return "success"
+                status = "success"
             else:
                 # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
                 rerun_range = range(m, range_run[-1] + 1)
                 if (thread_n % 2) == 0:
-                    data_lista.append((rerun_range, next_param))
+                    data_lista.append((rerun_range, next_param, page_num))
                 else:
-                    data_listb.append((rerun_range, next_param))
-                return "fail"
+                    data_listb.append((rerun_range, next_param, page_num))
+                status = "fail"
+        else:
+            # 存檔，自己取名
+            col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
+                   "token_seller_address", "deal_price",
+                   "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
+                   "ending_price", "approved_account",
+                   "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
+                   "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
+                   "pages", "msg", "next_param"]
+            # output a file for every 50 account addresses processes or one file if less than 50 addresses total
+            if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
+                if (thread_n % 2) == 0:
+                    result_dfa = pd.DataFrame(data_lis, columns=col)
+                    result_dfa = result_dfa.reset_index(drop=True)
+                    result_dfa.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_0_" + str(m) + ".xlsx"),
+                                        encoding="utf_8_sig")
+                else:
+                    result_dfb = pd.DataFrame(data_lis, columns=col)
+                    result_dfb = result_dfb.reset_index(drop=True)
+                    result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
+                                        encoding="utf_8_sig")
 
-        # 存檔，自己取名
-        col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
-               "token_seller_address", "deal_price",
-               "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
-               "ending_price", "approved_account",
-               "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
-               "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
-               "pages", "msg", "next_param"]
-        if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
-            if (thread_n % 2) == 0:
-                result_dfa = pd.DataFrame(data_lis, columns=col)
-                result_dfa = result_dfa.reset_index(drop=True)
-                result_dfa.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_0_" + str(m) + ".xlsx"),
-                                    encoding="utf_8_sig")
-            else:
-                result_dfb = pd.DataFrame(data_lis, columns=col)
-                result_dfb = result_dfb.reset_index(drop=True)
-                result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
-                                    encoding="utf_8_sig")
-
-    print("End   : " + str(datetime.datetime.now()))
-    return "success"
+    return status
 
 
 def retrieve_events(api_key, **query_params):
@@ -229,7 +251,10 @@ def retrieve_events(api_key, **query_params):
 
     response = requests.get(events_api, headers=headers)
 
-    return response.json()
+    if not response.ok:
+        response.raise_for_status()
+
+    return response
 
 
 # process_run的外層函數，當執行中斷時自動繼續往下執行
@@ -251,21 +276,19 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
         else:
             if (thread_n % 2) == 0:
                 if data_lista:
-                    range1_rerun = data_lista[-1][0]
-                    # break
-                    time.sleep(60)
+                    range1_rerun, nxt, pg = data_lista.pop()
                     print("Rerun1 is preparing " + str(count))
-                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n,
-                                      data_lista[-1][1])
+                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
                     count += 1
             else:
                 if data_listb:
-                    range2_rerun = data_listb[-1][0]
-                    time.sleep(60)
+                    range2_rerun, nxt, pg = data_listb.pop()
                     print("Rerun2 is preparing " + str(count))
-                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n,
-                                      data_listb[-1][1])
+                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
                     count += 1
+            if count > 1000:
+                rerun = False
+                print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
 '''
