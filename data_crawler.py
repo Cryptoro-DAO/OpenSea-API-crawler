@@ -13,8 +13,8 @@ import time
 # @TODO: move this to __main__ ?
 opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
 input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_address"].array
-# api_v1 = "https://api.opensea.io/api/v1"
-# events_api = "https://api.opensea.io/api/v1/events"
+
+api_v1 = "https://api.opensea.io/api/v1"
 
 
 # 將檔案裡的數量分拆
@@ -53,7 +53,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         try:
             while nextpage:
 
-                events = retrieve_events(api_key, event_type, next_param, wallet_address)
+                events = retrieve_events(api_key,
+                                         event_type=event_type, cursor=next_param, account_address=wallet_address)
 
                 with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
                     json.dump(events, fp=f)
@@ -205,16 +206,26 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     return "success"
 
 
-def retrieve_events(api_key, event_type, cursor, account_address):
+def retrieve_events(api_key, **query_params):
+    """
+    OpenSea Retrieve Events wrapper
+
+    :param api_key: an OpenSea API Key
+    :param query_params: param_key=string_value, e.g. only_opensea="True"
+    :return: dict representation of Response JSON object
+    """
     headers = {"X-API-KEY": api_key}
 
-    if cursor is None:
-        cursor = ""
+    events_api = api_v1 + "/events"
 
-    # @TODO: make this more flexible; able to accept more parameters
-    events_api = "https://api.opensea.io/api/v1/events?account_address=" + account_address \
-                 + "&event_type=" + event_type \
-                 + "&cursor=" + cursor
+    if query_params:
+        events_api += "?"
+        while query_params:
+            param, value = query_params.popitem()
+            events_api = events_api + param + '=' + value
+            if query_params:
+                events_api += "&"
+
     response = requests.get(events_api, headers=headers)
 
     return response.json()
