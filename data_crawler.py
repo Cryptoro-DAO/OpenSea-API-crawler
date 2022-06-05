@@ -1,3 +1,8 @@
+"""
+針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
+抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+"""
 import json
 import requests
 import numpy as np
@@ -17,33 +22,64 @@ input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_addre
 api_v1 = "https://api.opensea.io/api/v1"
 
 
-# 將檔案裡的數量分拆
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+def retrieve_events(api_key, **query_params):
+    """
+    OpenSea Retrieve Events wrapper
+
+    :param api_key: an OpenSea API Key
+    :param query_params: param_key=string_value, e.g. only_opensea="True"
+    :return: dict representation of Response JSON object
+    """
+    headers = {"X-API-KEY": api_key}
+
+    events_api = api_v1 + "/events"
+
+    if query_params:
+        events_api += "?"
+        while query_params:
+            param, value = query_params.popitem()
+            events_api = events_api + param + '=' + value
+            if query_params:
+                events_api += "&"
+
+    response = requests.get(events_api, headers=headers)
+
+    if not response.ok:
+        response.raise_for_status()
+
+    return response
 
 
-'''
-針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
-抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-'''
+def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
+    """
+    Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
+    values, i.e. index of the list
 
+    @TODO: not sure if thread_n is really needed here
 
-def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param):
+    :param range_run:
+    :param account_addresses:
+    :param data_lis:
+    :param api_key:
+    :param event_type:
+    :param thread_n:
+    :param next_param:
+    :param page_num:
+
+    :return: status code: "success" or "fail"
+    """
     # @TODO why global scope?
     global data_lists
     global data_lista
     global data_listb
     global data_list0
     global data_list1
+    status = "success"
 
     for m in range_run:
 
         wallet_address = account_addresses[m]
         nextpage = True
-        page_num = 0
 
         # create a subdirectory to save response json object
         output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
@@ -54,7 +90,9 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             while nextpage:
 
                 events = retrieve_events(api_key,
-                                         event_type=event_type, cursor=next_param, account_address=wallet_address)
+                                         event_type=event_type,
+                                         cursor=next_param,
+                                         account_address=wallet_address).json()
 
                 with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
                     json.dump(events, fp=f)
@@ -142,7 +180,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
 
                 else:
-
+                    # @TODO: except KeyError
                     data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
                             "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num,
                             "Fail-no asset_events", next_param]
@@ -161,10 +199,30 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     nextpage = False
 
                 # for debugging
-                if page_num == 2:
-                    nextpage = False
+                # @TODO: remember to comment or remove for production
+                # if page_num == 2:
+                #     nextpage = False
 
-        except:
+        except requests.exceptions.RequestException as e:
+            print(repr(e))
+            # @TODO: bugfix 429 Client Error: Too Many Requests for url
+            # if e.response.status_code == 429:
+            #     time.sleep(60)
+            msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
+            data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+                    "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, msg, next_param]
+            data_lis.append(data)
+            data_lists.append(data)
+            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+            rerun_range = range(m, range_run[-1] + 1)
+            if (thread_n % 2) == 0:
+                data_lista.append((rerun_range, next_param, page_num))
+            else:
+                data_listb.append((rerun_range, next_param, page_num))
+            status = "fail"
+        # @TODO: remove this catch all Exception
+        except Exception as e:
+            print(repr(e.args))
             data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
                     "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, "SOMETHING WRONG",
                     next_param]
@@ -173,15 +231,15 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             data_lists.append(data)
 
             if m == range_run[-1] + 1:
-                return "success"
+                status = "success"
             else:
                 # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
                 rerun_range = range(m, range_run[-1] + 1)
                 if (thread_n % 2) == 0:
-                    data_lista.append((rerun_range, next_param))
+                    data_lista.append((rerun_range, next_param, page_num))
                 else:
-                    data_listb.append((rerun_range, next_param))
-                return "fail"
+                    data_listb.append((rerun_range, next_param, page_num))
+                status = "fail"
 
         # 存檔，自己取名
         col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
@@ -191,6 +249,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
                "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
                "pages", "msg", "next_param"]
+        # output a file for every 50 account addresses processes or one file if less than 50 addresses total
         if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
             if (thread_n % 2) == 0:
                 result_dfa = pd.DataFrame(data_lis, columns=col)
@@ -203,37 +262,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
                                     encoding="utf_8_sig")
 
-    print("End   : " + str(datetime.datetime.now()))
-    return "success"
+    return status
 
 
-def retrieve_events(api_key, **query_params):
-    """
-    OpenSea Retrieve Events wrapper
-
-    :param api_key: an OpenSea API Key
-    :param query_params: param_key=string_value, e.g. only_opensea="True"
-    :return: dict representation of Response JSON object
-    """
-    headers = {"X-API-KEY": api_key}
-
-    events_api = api_v1 + "/events"
-
-    if query_params:
-        events_api += "?"
-        while query_params:
-            param, value = query_params.popitem()
-            events_api = events_api + param + '=' + value
-            if query_params:
-                events_api += "&"
-
-    response = requests.get(events_api, headers=headers)
-
-    return response.json()
-
-
-# process_run的外層函數，當執行中斷時自動繼續往下執行
-def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param):
+def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
+    # process_run的外層函數，當執行中斷時自動繼續往下執行
     global data_lista
     global data_listb
     global data_list0
@@ -242,7 +275,7 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
     s_f = process_run(range_run, addresses, data_lis, api_key, event_type, thread_n, next_param)
 
     rerun = True
-    count = 0
+    rerun_count = 0
 
     while rerun:
         if s_f == "success":
@@ -251,40 +284,42 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
         else:
             if (thread_n % 2) == 0:
                 if data_lista:
-                    range1_rerun = data_lista[-1][0]
-                    # break
-                    time.sleep(60)
-                    print("Rerun1 is preparing " + str(count))
-                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n,
-                                      data_lista[-1][1])
-                    count += 1
+                    range1_rerun, nxt, pg = data_lista.pop()
+                    print("Rerun1 is preparing " + str(rerun_count))
+                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
+                    rerun_count += 1
             else:
                 if data_listb:
-                    range2_rerun = data_listb[-1][0]
-                    time.sleep(60)
-                    print("Rerun2 is preparing " + str(count))
-                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n,
-                                      data_listb[-1][1])
-                    count += 1
+                    range2_rerun, nxt, pg = data_listb.pop()
+                    print("Rerun2 is preparing " + str(rerun_count))
+                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
+                    rerun_count += 1
+            if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
+                rerun = False
+                print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
-'''
+# 將檔案裡的數量分拆
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
-event_type : 設定要抓取的事件(created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve)
-divide : 要用多少筆數來切總列數(檔案)
-range_s : 執行首序列號
-range_e : 執行末序列號
-EX. range(0,60) --> range_s=0 , range_e=60 , divide = 30
-
-api_key = opensea api key1
-api_key2 = opensea api key2
-
-'''
 
 if __name__ == '__main__':
+    '''
+    以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
+    event_type : 設定要抓取的事件(created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve)
+    chunk_size : 要用多少筆數來切總列數(檔案)
+    range_s : 執行首序列號
+    range_e : 執行末序列號
+    EX. range(0,60) --> range_s=0 , range_e=60 , divide = 30
+
+    api_key = opensea api key1
+    api_key2 = opensea api key2
+    '''
     event_type = "successful"
-    divide = 2
+    chunk_size = 1
     range_s = 0
     range_e = 2
 
@@ -302,7 +337,7 @@ if __name__ == '__main__':
     data_lists = []
     data_lista = []
     data_listb = []
-    range_collection = list(chunks(range(range_s, range_e), divide))
+    range_collection = list(chunks(range(range_s, range_e), chunk_size))
     thread = len(range_collection)
 
     start = str(datetime.datetime.now())
@@ -311,12 +346,12 @@ if __name__ == '__main__':
         if (n % 2) == 0:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
                 process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1,
-                event_type, n, ""))
+                event_type, n))
             globals()["add_thread%s" % n].start()
         else:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
                 process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2,
-                event_type, n, ""))
+                event_type, n))
             globals()["add_thread%s" % n].start()
 
     for nn in range(thread):
