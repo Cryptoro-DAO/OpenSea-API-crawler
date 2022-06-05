@@ -73,11 +73,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     :return: status code: "success" or "fail"
     """
     # @TODO why global scope?
-    global data_lists
     global data_lista
     global data_listb
-    global data_list0
-    global data_list1
     status = "success"
 
     for m in range_run:
@@ -154,7 +151,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         data["next_param"] = events["next"]
 
                         data_lis.append(data)
-                        data_lists.append(data)
+
                         print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + data["event_timestamp"])
 
                 else:
@@ -164,7 +161,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                             "msg": "Fail-no asset_events",
                             "next_param": next_param}
                     data_lis.append(data)
-                    data_lists.append(data)
 
                     print(str(m) + " no asset_events!")
                     nextpage = False
@@ -193,7 +189,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     "msg": msg,
                     "next_param": next_param}
             data_lis.append(data)
-            data_lists.append(data)
+
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             rerun_range = range(m, range_run[-1] + 1)
             if (thread_n % 2) == 0:
@@ -210,7 +206,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     "msg": msg,
                     "next_param": next_param}
             data_lis.append(data)
-            data_lists.append(data)
 
             if m == range_run[-1] + 1:
                 status = "success"
@@ -247,8 +242,6 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
     # process_run的外層函數，當執行中斷時自動繼續往下執行
     global data_lista
     global data_listb
-    global data_list0
-    global data_list1
 
     s_f = process_run(range_run, addresses, data_lis, api_key, event_type, thread_n, next_param)
 
@@ -312,7 +305,6 @@ if __name__ == '__main__':
     api_key1 = secrets['api_key1']
     api_key2 = secrets['api_key2']
 
-    data_lists = []
     data_lista = []
     data_listb = []
     range_collection = list(chunks(range(range_s, range_e), chunk_size))
