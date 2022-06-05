@@ -275,7 +275,7 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
     s_f = process_run(range_run, addresses, data_lis, api_key, event_type, thread_n, next_param)
 
     rerun = True
-    count = 0
+    rerun_count = 0
 
     while rerun:
         if s_f == "success":
@@ -285,16 +285,16 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
             if (thread_n % 2) == 0:
                 if data_lista:
                     range1_rerun, nxt, pg = data_lista.pop()
-                    print("Rerun1 is preparing " + str(count))
+                    print("Rerun1 is preparing " + str(rerun_count))
                     s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
-                    count += 1
+                    rerun_count += 1
             else:
                 if data_listb:
                     range2_rerun, nxt, pg = data_listb.pop()
-                    print("Rerun2 is preparing " + str(count))
+                    print("Rerun2 is preparing " + str(rerun_count))
                     s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
-                    count += 1
-            if count > 1000:
+                    rerun_count += 1
+            if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
                 rerun = False
                 print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
