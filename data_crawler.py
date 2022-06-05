@@ -246,16 +246,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                "pages", "msg", "next_param"]
         # output a file for every 50 account addresses processes or one file if less than 50 addresses total
         if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
-            if (thread_n % 2) == 0:
-                result_dfa = pd.DataFrame(data_lis, columns=col)
-                result_dfa = result_dfa.reset_index(drop=True)
-                result_dfa.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_0_" + str(m) + ".xlsx"),
-                                    encoding="utf_8_sig")
-            else:
-                result_dfb = pd.DataFrame(data_lis, columns=col)
-                result_dfb = result_dfb.reset_index(drop=True)
-                result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
-                                    encoding="utf_8_sig")
+            fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
+            pd.DataFrame(data_lis, columns=col)\
+                .reset_index(drop=True)\
+                .to_excel(os.path.join(os.getcwd(), 'extracts', fn), encoding="utf_8_sig")
 
     return status
 
