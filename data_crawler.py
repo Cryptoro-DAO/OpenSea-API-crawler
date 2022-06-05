@@ -81,11 +81,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         wallet_address = account_addresses[m]
         nextpage = True
 
-        # create a subdirectory to save response json object
-        output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
-        if not os.path.isdir(os.path.join(output_dir)):
-            os.makedirs(output_dir)
-
         try:
             while nextpage:
 
@@ -94,8 +89,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                          cursor=next_param,
                                          account_address=wallet_address).json()
 
-                with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
-                    json.dump(events, fp=f)
+                output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
+                save_response_json(events, output_dir, page_num)
 
                 if "asset_events" in events.keys():
 
@@ -263,6 +258,15 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                     encoding="utf_8_sig")
 
     return status
+
+
+def save_response_json(events, output_dir, page_num):
+    # create a subdirectory to save response json object
+    if not os.path.isdir(os.path.join(output_dir)):
+        os.makedirs(output_dir)
+
+    with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
+        json.dump(events, fp=f)
 
 
 def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
