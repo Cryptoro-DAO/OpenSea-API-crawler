@@ -96,89 +96,69 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
                     asset_events = events["asset_events"]
                     for event in asset_events:
+                        data = {}
 
                         if event["asset"]:
-                            num_sales = event["asset"]["num_sales"]
-                            token_id = event["asset"]["token_id"]
+                            data["num_sales"] = event["asset"]["num_sales"]
+                            data["token_id"] = event["asset"]["token_id"]
                             if event["asset"]["owner"]:
-                                token_owner_address = event["asset"]["owner"]["address"]
+                                data["token_owner_address"] = event["asset"]["owner"]["address"]
                             else:
-                                token_owner_address = event["asset"]["owner"]
-                        else:
-                            num_sales = ""
-                            token_id = ""
-                            token_owner_address = ""
+                                data["token_owner_address"] = event["asset"]["owner"]
 
                         if event["asset_bundle"]:
-                            asset_bundle = event["asset_bundle"]
-                        else:
-                            asset_bundle = ""
+                            data["asset_bundle"] = event["asset_bundle"]
 
-                        event_timestamp = event["event_timestamp"]
-                        event_type = event["event_type"]
+                        data["event_timestamp"] = event["event_timestamp"]
+                        data["event_type"] = event["event_type"]
 
-                        listing_time = event["listing_time"]
+                        data["listing_time"] = event["listing_time"]
 
                         if event["seller"]:
-                            token_seller_address = event["seller"]["address"]
-                        else:
-                            token_seller_address = ""
+                            data["token_seller_address"] = event["seller"]["address"]
 
                         if event["total_price"]:
-                            deal_price = int(event["total_price"])
-                        else:
-                            deal_price = ""
+                            data["deal_price"] = int(event["total_price"])
 
                         if event["payment_token"]:
-                            payment_token_symbol = event["payment_token"]["symbol"]
-                            payment_token_decimals = event["payment_token"]["decimals"]
-                            payment_token_usdprice = np.float64(event["payment_token"]["usd_price"])
-                        else:
-                            payment_token_symbol = event["payment_token"]
-                            payment_token_decimals = event["payment_token"]
-                            payment_token_usdprice = event["payment_token"]
+                            data["payment_token_symbol"] = event["payment_token"]["symbol"]
+                            data["payment_token_decimals"] = event["payment_token"]["decimals"]
+                            data["payment_token_usdprice"] = np.float64(event["payment_token"]["usd_price"])
 
-                        quantity = event["quantity"]
-                        starting_price = event["starting_price"]
-                        ending_price = event["ending_price"]
-                        approved_account = event["approved_account"]
-                        auction_type = event["auction_type"]
-                        bid_amount = event["bid_amount"]
+                        data["quantity"] = event["quantity"]
+                        data["starting_price"] = event["starting_price"]
+                        data["ending_price"] = event["ending_price"]
+                        data["approved_account"] = event["approved_account"]
+                        data["auction_type"] = event["auction_type"]
+                        data["bid_amount"] = event["bid_amount"]
 
                         if event["transaction"]:
-                            transaction_hash = event["transaction"]["transaction_hash"]
-                            block_hash = event["transaction"]["block_hash"]
-                            block_number = event["transaction"]["block_number"]
-                        else:
-                            transaction_hash = ""
-                            block_hash = ""
-                            block_number = ""
+                            data["transaction_hash"] = event["transaction"]["transaction_hash"]
+                            data["block_hash"] = event["transaction"]["block_hash"]
+                            data["block_number"] = event["transaction"]["block_number"]
 
-                        collection_slug = event["collection_slug"]
-                        is_private = event["is_private"]
-                        duration = event["duration"]
-                        created_date = event["created_date"]
+                        data["collection_slug"] = event["collection_slug"]
+                        data["is_private"] = event["is_private"]
+                        data["duration"] = event["duration"]
+                        data["created_date"] = event["created_date"]
 
-                        contract_address = event["contract_address"]
+                        data["contract_address"] = event["contract_address"]
 
-                        # @TODO: change this to dict
-                        data = [event_timestamp, event_type, token_id, num_sales, listing_time, token_owner_address,
-                                token_seller_address, deal_price,
-                                payment_token_symbol, payment_token_decimals, payment_token_usdprice, quantity,
-                                starting_price, ending_price, approved_account,
-                                asset_bundle, auction_type, bid_amount, transaction_hash, block_hash, block_number,
-                                is_private, duration, created_date, collection_slug, contract_address,
-                                wallet_address, page_num, "success", next_param]
+                        data["wallet_address_input"] = wallet_address
+                        data["pages"] = page_num
+                        data["msg"] = status
+                        data["next_param"] = events["next"]
 
                         data_lis.append(data)
                         data_lists.append(data)
-                        print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + event_timestamp)
+                        print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + data["event_timestamp"])
 
                 else:
                     # @TODO: except KeyError
-                    data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                            "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num,
-                            "Fail-no asset_events", next_param]
+                    data = {"wallet_address_input": wallet_address,
+                            "pages": page_num,
+                            "msg": "Fail-no asset_events",
+                            "next_param": next_param}
                     data_lis.append(data)
                     data_lists.append(data)
 
@@ -204,8 +184,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             # if e.response.status_code == 429:
             #     time.sleep(60)
             msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
-            data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, msg, next_param]
+            data = {"wallet_address_input": wallet_address,
+                    "pages": page_num,
+                    "msg": msg,
+                    "next_param": next_param}
             data_lis.append(data)
             data_lists.append(data)
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
@@ -218,10 +200,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
         # @TODO: remove this catch all Exception
         except Exception as e:
             print(repr(e.args))
-            data = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-                    "", "", "", "", "", "", "", "", "", "", "", wallet_address, page_num, "SOMETHING WRONG",
-                    next_param]
-
+            msg = "SOMETHING WRONG"
+            data = {"wallet_address_input": wallet_address,
+                    "pages": page_num,
+                    "msg": msg,
+                    "next_param": next_param}
             data_lis.append(data)
             data_lists.append(data)
 
@@ -237,17 +220,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 status = "fail"
 
         # 存檔，自己取名
-        col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
-               "token_seller_address", "deal_price",
-               "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
-               "ending_price", "approved_account",
-               "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
-               "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
-               "pages", "msg", "next_param"]
         # output a file for every 50 account addresses processes or one file if less than 50 addresses total
         if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
             fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
-            pd.DataFrame(data_lis, columns=col)\
+            pd.DataFrame(data_lis) \
                 .reset_index(drop=True)\
                 .to_excel(os.path.join(os.getcwd(), 'extracts', fn), encoding="utf_8_sig")
 
