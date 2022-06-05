@@ -221,27 +221,27 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 else:
                     data_listb.append((rerun_range, next_param, page_num))
                 status = "fail"
-        else:
-            # 存檔，自己取名
-            col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
-                   "token_seller_address", "deal_price",
-                   "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
-                   "ending_price", "approved_account",
-                   "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
-                   "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
-                   "pages", "msg", "next_param"]
-            # output a file for every 50 account addresses processes or one file if less than 50 addresses total
-            if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
-                if (thread_n % 2) == 0:
-                    result_dfa = pd.DataFrame(data_lis, columns=col)
-                    result_dfa = result_dfa.reset_index(drop=True)
-                    result_dfa.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_0_" + str(m) + ".xlsx"),
-                                        encoding="utf_8_sig")
-                else:
-                    result_dfb = pd.DataFrame(data_lis, columns=col)
-                    result_dfb = result_dfb.reset_index(drop=True)
-                    result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
-                                        encoding="utf_8_sig")
+
+        # 存檔，自己取名
+        col = ["event_timestamp", "event_type", "token_id", "num_sales", "listing_time", "token_owner_address",
+               "token_seller_address", "deal_price",
+               "payment_token_symbol", "payment_token_decimals", "payment_token_usdprice", "quantity", "starting_price",
+               "ending_price", "approved_account",
+               "asset_bundle", "auction_type", "bid_amount", "transaction_hash", "block_hash", "block_number",
+               "is_private", "duration", "created_date", "collection_slug", "contract_address", "wallet_address_input",
+               "pages", "msg", "next_param"]
+        # output a file for every 50 account addresses processes or one file if less than 50 addresses total
+        if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
+            if (thread_n % 2) == 0:
+                result_dfa = pd.DataFrame(data_lis, columns=col)
+                result_dfa = result_dfa.reset_index(drop=True)
+                result_dfa.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_0_" + str(m) + ".xlsx"),
+                                    encoding="utf_8_sig")
+            else:
+                result_dfb = pd.DataFrame(data_lis, columns=col)
+                result_dfb = result_dfb.reset_index(drop=True)
+                result_dfb.to_excel(os.path.join(os.getcwd(), 'extracts', "coolcatsnft_1_" + str(m) + ".xlsx"),
+                                    encoding="utf_8_sig")
 
     return status
 
