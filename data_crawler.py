@@ -1,3 +1,8 @@
+"""
+針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
+抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+"""
 import json
 import requests
 import numpy as np
@@ -17,18 +22,32 @@ input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_addre
 api_v1 = "https://api.opensea.io/api/v1"
 
 
-# 將檔案裡的數量分拆
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+def retrieve_events(api_key, **query_params):
+    """
+    OpenSea Retrieve Events wrapper
 
+    :param api_key: an OpenSea API Key
+    :param query_params: param_key=string_value, e.g. only_opensea="True"
+    :return: dict representation of Response JSON object
+    """
+    headers = {"X-API-KEY": api_key}
 
-'''
-針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
-抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-'''
+    events_api = api_v1 + "/events"
+
+    if query_params:
+        events_api += "?"
+        while query_params:
+            param, value = query_params.popitem()
+            events_api = events_api + param + '=' + value
+            if query_params:
+                events_api += "&"
+
+    response = requests.get(events_api, headers=headers)
+
+    if not response.ok:
+        response.raise_for_status()
+
+    return response
 
 
 def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param, page_num=0):
@@ -246,36 +265,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     return status
 
 
-def retrieve_events(api_key, **query_params):
-    """
-    OpenSea Retrieve Events wrapper
-
-    :param api_key: an OpenSea API Key
-    :param query_params: param_key=string_value, e.g. only_opensea="True"
-    :return: dict representation of Response JSON object
-    """
-    headers = {"X-API-KEY": api_key}
-
-    events_api = api_v1 + "/events"
-
-    if query_params:
-        events_api += "?"
-        while query_params:
-            param, value = query_params.popitem()
-            events_api = events_api + param + '=' + value
-            if query_params:
-                events_api += "&"
-
-    response = requests.get(events_api, headers=headers)
-
-    if not response.ok:
-        response.raise_for_status()
-
-    return response
-
-
-# process_run的外層函數，當執行中斷時自動繼續往下執行
 def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param):
+    # process_run的外層函數，當執行中斷時自動繼續往下執行
     global data_lista
     global data_listb
     global data_list0
@@ -308,23 +299,27 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
                 print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
-'''
+# 將檔案裡的數量分拆
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
-event_type : 設定要抓取的事件(created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve)
-divide : 要用多少筆數來切總列數(檔案)
-range_s : 執行首序列號
-range_e : 執行末序列號
-EX. range(0,60) --> range_s=0 , range_e=60 , divide = 30
-
-api_key = opensea api key1
-api_key2 = opensea api key2
-
-'''
 
 if __name__ == '__main__':
+    '''
+    以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
+    event_type : 設定要抓取的事件(created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve)
+    chunk_size : 要用多少筆數來切總列數(檔案)
+    range_s : 執行首序列號
+    range_e : 執行末序列號
+    EX. range(0,60) --> range_s=0 , range_e=60 , divide = 30
+
+    api_key = opensea api key1
+    api_key2 = opensea api key2
+    '''
     event_type = "successful"
-    divide = 2
+    chunk_size = 1
     range_s = 0
     range_e = 2
 
@@ -342,7 +337,7 @@ if __name__ == '__main__':
     data_lists = []
     data_lista = []
     data_listb = []
-    range_collection = list(chunks(range(range_s, range_e), divide))
+    range_collection = list(chunks(range(range_s, range_e), chunk_size))
     thread = len(range_collection)
 
     start = str(datetime.datetime.now())
