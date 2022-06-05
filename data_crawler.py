@@ -342,23 +342,24 @@ if __name__ == '__main__':
     data_lista = []
     data_listb = []
     range_collection = list(chunks(range(range_s, range_e), chunk_size))
-    thread = len(range_collection)
+    thread_n = len(range_collection)
 
     start = str(datetime.datetime.now())
-    for n in range(thread):
+    for n in range(thread_n):
         globals()["datalist%s" % n] = []
-        if (n % 2) == 0:
-            globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-                process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1,
-                event_type, n))
-            globals()["add_thread%s" % n].start()
-        else:
-            globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-                process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2,
-                event_type, n))
-            globals()["add_thread%s" % n].start()
 
-    for nn in range(thread):
+        # distribute keys among threads
+        if (n % 2) == 0:
+            key_ = api_key1
+        else:
+            key_ = api_key2
+
+        globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
+            process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], key_,
+            event_type, n))
+        globals()["add_thread%s" % n].start()
+
+    for nn in range(thread_n):
         globals()["add_thread%s" % nn].join()
 
     print("Start :" + start)
