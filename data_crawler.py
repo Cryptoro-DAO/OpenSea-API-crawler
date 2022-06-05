@@ -152,6 +152,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     print(str(m) + " no asset_events!")
                     nextpage = False
 
+                # @TODO: fix next_param not stored with the right page
                 next_param = events["next"]
                 if next_param is not None:
                     page_num += 1
