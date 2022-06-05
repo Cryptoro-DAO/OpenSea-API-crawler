@@ -20,19 +20,23 @@ opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.x
 input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_address"].array
 
 api_v1 = "https://api.opensea.io/api/v1"
+test_v1 = "https://testnets-api.opensea.io/api/v1/"
 
 
-def retrieve_events(api_key, **query_params):
+def retrieve_events(api_key=None, **query_params):
     """
     OpenSea Retrieve Events wrapper
 
-    :param api_key: an OpenSea API Key
+    :param api_key: an OpenSea API Key. If not defined, call testnets-api.
     :param query_params: param_key=string_value, e.g. only_opensea="True"
     :return: dict representation of Response JSON object
     """
     headers = {"X-API-KEY": api_key}
 
-    events_api = api_v1 + "/events"
+    if api_key is None:
+        events_api = test_v1 + "/events"
+    else:
+        events_api = api_v1 + "/events"
 
     if query_params:
         events_api += "?"
