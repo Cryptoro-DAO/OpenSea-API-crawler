@@ -32,6 +32,23 @@ def chunks(lst, n):
 
 
 def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param, page_num=0):
+    """
+    Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
+    values, i.e. index of the list
+
+    @TODO: not sure if thread_n is really needed here
+
+    :param range_run:
+    :param account_addresses:
+    :param data_lis:
+    :param api_key:
+    :param event_type:
+    :param thread_n:
+    :param next_param:
+    :param page_num:
+
+    :return: status code: "success" or "fail"
+    """
     # @TODO why global scope?
     global data_lists
     global data_lista
