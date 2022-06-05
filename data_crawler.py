@@ -50,7 +50,7 @@ def retrieve_events(api_key, **query_params):
     return response
 
 
-def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param, page_num=0):
+def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
     values, i.e. index of the list
@@ -265,7 +265,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     return status
 
 
-def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param):
+def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
     global data_lista
     global data_listb
@@ -346,12 +346,12 @@ if __name__ == '__main__':
         if (n % 2) == 0:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
                 process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key1,
-                event_type, n, ""))
+                event_type, n))
             globals()["add_thread%s" % n].start()
         else:
             globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
                 process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], api_key2,
-                event_type, n, ""))
+                event_type, n))
             globals()["add_thread%s" % n].start()
 
     for nn in range(thread):
