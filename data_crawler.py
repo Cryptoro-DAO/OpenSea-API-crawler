@@ -117,6 +117,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
 
                         if event["seller"]:
                             data["token_seller_address"] = event["seller"]["address"]
+                        if event["winner_account"]:
+                            data["token_winner_address"] = event["winner_account"]["address"]
 
                         if event["total_price"]:
                             data["deal_price"] = int(event["total_price"])
@@ -173,8 +175,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     next_param = ""
                     nextpage = False
 
-                # for debugging
-                # @TODO: remember to comment or remove for production
+                # @TODO: for DEBUGGING, remember to comment or remove before production
                 # if page_num == 2:
                 #     nextpage = False
 
