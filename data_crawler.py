@@ -90,7 +90,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                          cursor=next_param,
                                          account_address=wallet_address).json()
 
-                output_dir = os.path.join(os.getcwd(), 'extracts', wallet_address)
+                output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
                 save_response_json(events, output_dir, page_num)
 
                 if "asset_events" in events.keys():
