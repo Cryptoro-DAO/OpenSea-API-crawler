@@ -154,7 +154,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     :param account_addresses:
     :param data_lis:
     :param api_key:
-    :param event_type:
+    :param event_type: see OpenSea API doc, e.g. "successful", "transfer", etc.
     :param thread_n:
     :param next_param:
     :param page_num:
@@ -167,19 +167,17 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     status = "success"
 
     for m in range_run:
-
         wallet_address = account_addresses[m]
-        next_page = True
 
         try:
+            next_page = True
             while next_page:
-
                 events = retrieve_events(api_key,
                                          event_type=event_type,
                                          cursor=next_param,
                                          account_address=wallet_address).json()
 
-                # save to local directory
+                # save each response JSON as a separate file
                 output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
                 # save to aws
                 # output_dir = 's3://nftfomo/asset_events/' + wallet_address
@@ -204,7 +202,6 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                 # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
                 # if page_num == 2:
                 #     next_page = False
-
         except requests.exceptions.RequestException as e:
             print(repr(e))
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
