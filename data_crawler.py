@@ -9,8 +9,6 @@ import numpy as np
 import pandas as pd
 import datetime
 import os
-import pathlib
-from os.path import isfile, join
 import threading
 import time
 import s3fs
@@ -203,21 +201,21 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     next_param = ""
                     next_page = False
 
-                # @TODO: for DEBUGGING, remember to comment or remove before production
+                # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
                 # if page_num == 2:
                 #     next_page = False
 
         except requests.exceptions.RequestException as e:
             print(repr(e))
-            # @TODO: bugfix 429 Client Error: Too Many Requests for url
-            # if e.response.status_code == 429:
-            #     time.sleep(60)
-            msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
-            data = {"wallet_address_input": wallet_address,
-                    "pages": page_num,
-                    "msg": msg,
-                    "next_param": next_param}
-            data_lis.append(data)
+            # @TODO: better workaround when 429 Client Error: Too Many Requests for url
+            if e.response.status_code == 429:
+                msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
+                data = {"wallet_address_input": wallet_address,
+                        "pages": page_num,
+                        "msg": msg,
+                        "next_param": next_param}
+                data_lis.append(data)
+                time.sleep(6) # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             rerun_range = range(m, range_run[-1] + 1)
@@ -370,6 +368,8 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
+        # @TODO: Is there a better way to manage the return value,
+        # i.e. Do we really need to pass in globals()["datalist%s" % n]?
         globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
             process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], key_,
             event_type, n))
