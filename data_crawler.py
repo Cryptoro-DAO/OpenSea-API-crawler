@@ -55,6 +55,99 @@ def retrieve_events(api_key=None, **query_params):
     return response
 
 
+def parse_events(events, next_param, nextpage, page_num, status, wallet_address):
+    """
+
+    Parameters
+    ----------
+    events : a Response object containing a collection of Event objects
+    next_param
+    nextpage
+    page_num
+    status
+    wallet_address
+
+    Returns
+    -------
+    event_list
+        a list of dictionaries of each event
+    """
+    events_list = []
+
+    if "asset_events" in events.keys():
+
+        asset_events = events["asset_events"]
+        for event in asset_events:
+            data = {}
+
+            if event["asset"]:
+                data["num_sales"] = event["asset"]["num_sales"]
+                data["token_id"] = event["asset"]["token_id"]
+                if event["asset"]["owner"]:
+                    data["token_owner_address"] = event["asset"]["owner"]["address"]
+                else:
+                    data["token_owner_address"] = event["asset"]["owner"]
+
+            if event["asset_bundle"]:
+                data["asset_bundle"] = event["asset_bundle"]
+
+            data["event_timestamp"] = event["event_timestamp"]
+            data["event_type"] = event["event_type"]
+
+            data["listing_time"] = event["listing_time"]
+
+            if event["seller"]:
+                data["token_seller_address"] = event["seller"]["address"]
+            if event["winner_account"]:
+                data["token_winner_address"] = event["winner_account"]["address"]
+
+            if event["total_price"]:
+                data["deal_price"] = int(event["total_price"])
+
+            if event["payment_token"]:
+                data["payment_token_symbol"] = event["payment_token"]["symbol"]
+                data["payment_token_decimals"] = event["payment_token"]["decimals"]
+                data["payment_token_usdprice"] = np.float64(event["payment_token"]["usd_price"])
+
+            data["quantity"] = event["quantity"]
+            data["starting_price"] = event["starting_price"]
+            data["ending_price"] = event["ending_price"]
+            data["approved_account"] = event["approved_account"]
+            data["auction_type"] = event["auction_type"]
+            data["bid_amount"] = event["bid_amount"]
+
+            if event["transaction"]:
+                data["transaction_hash"] = event["transaction"]["transaction_hash"]
+                data["block_hash"] = event["transaction"]["block_hash"]
+                data["block_number"] = event["transaction"]["block_number"]
+
+            data["collection_slug"] = event["collection_slug"]
+            data["is_private"] = event["is_private"]
+            data["duration"] = event["duration"]
+            data["created_date"] = event["created_date"]
+
+            data["contract_address"] = event["contract_address"]
+
+            data["wallet_address_input"] = wallet_address
+            data["pages"] = page_num
+            data["msg"] = status
+            data["next_param"] = events["next"]
+
+            events_list.append(data)
+    else:
+        # @TODO: except KeyError
+        data = {"wallet_address_input": wallet_address,
+                "pages": page_num,
+                "msg": "Fail-no asset_events",
+                "next_param": next_param}
+        events_list.append(data)
+
+        print("wallet: " + wallet_address + " no asset_events!")
+        nextpage = False
+
+    return nextpage, events_list
+
+
 def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
@@ -91,85 +184,21 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                          cursor=next_param,
                                          account_address=wallet_address).json()
 
-                #output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                # save to local directory
+                # output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                # save to aws
                 output_dir = 's3://nftfomo/asset_events/' + wallet_address
                 save_response_json(events, output_dir, page_num)
 
-                if "asset_events" in events.keys():
+                nextpage, e_list = parse_events(events, next_param, nextpage, page_num, status, wallet_address)
+                for event in e_list:
+                    data_lis.append(event)
 
-                    asset_events = events["asset_events"]
-                    for event in asset_events:
-                        data = {}
+                # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
+                print("wallet: " + wallet_address + ", pages: "
+                      + str(page_num) + ", "
+                      + event["event_timestamp"])
 
-                        if event["asset"]:
-                            data["num_sales"] = event["asset"]["num_sales"]
-                            data["token_id"] = event["asset"]["token_id"]
-                            if event["asset"]["owner"]:
-                                data["token_owner_address"] = event["asset"]["owner"]["address"]
-                            else:
-                                data["token_owner_address"] = event["asset"]["owner"]
-
-                        if event["asset_bundle"]:
-                            data["asset_bundle"] = event["asset_bundle"]
-
-                        data["event_timestamp"] = event["event_timestamp"]
-                        data["event_type"] = event["event_type"]
-
-                        data["listing_time"] = event["listing_time"]
-
-                        if event["seller"]:
-                            data["token_seller_address"] = event["seller"]["address"]
-                        if event["winner_account"]:
-                            data["token_winner_address"] = event["winner_account"]["address"]
-
-                        if event["total_price"]:
-                            data["deal_price"] = int(event["total_price"])
-
-                        if event["payment_token"]:
-                            data["payment_token_symbol"] = event["payment_token"]["symbol"]
-                            data["payment_token_decimals"] = event["payment_token"]["decimals"]
-                            data["payment_token_usdprice"] = np.float64(event["payment_token"]["usd_price"])
-
-                        data["quantity"] = event["quantity"]
-                        data["starting_price"] = event["starting_price"]
-                        data["ending_price"] = event["ending_price"]
-                        data["approved_account"] = event["approved_account"]
-                        data["auction_type"] = event["auction_type"]
-                        data["bid_amount"] = event["bid_amount"]
-
-                        if event["transaction"]:
-                            data["transaction_hash"] = event["transaction"]["transaction_hash"]
-                            data["block_hash"] = event["transaction"]["block_hash"]
-                            data["block_number"] = event["transaction"]["block_number"]
-
-                        data["collection_slug"] = event["collection_slug"]
-                        data["is_private"] = event["is_private"]
-                        data["duration"] = event["duration"]
-                        data["created_date"] = event["created_date"]
-
-                        data["contract_address"] = event["contract_address"]
-
-                        data["wallet_address_input"] = wallet_address
-                        data["pages"] = page_num
-                        data["msg"] = status
-                        data["next_param"] = events["next"]
-
-                        data_lis.append(data)
-
-                        print("wallet: " + str(m) + " , pages: " + str(page_num) + ", " + data["event_timestamp"])
-
-                else:
-                    # @TODO: except KeyError
-                    data = {"wallet_address_input": wallet_address,
-                            "pages": page_num,
-                            "msg": "Fail-no asset_events",
-                            "next_param": next_param}
-                    data_lis.append(data)
-
-                    print(str(m) + " no asset_events!")
-                    nextpage = False
-
-                # @TODO: fix next_param not stored with the right page
                 next_param = events["next"]
                 if next_param is not None:
                     page_num += 1
@@ -178,8 +207,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     nextpage = False
 
                 # @TODO: for DEBUGGING, remember to comment or remove before production
-                # if page_num == 2:
-                #     nextpage = False
+                if page_num == 2:
+                    nextpage = False
 
         except requests.exceptions.RequestException as e:
             print(repr(e))

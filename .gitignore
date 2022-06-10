@@ -1,7 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm IDE project settings
+.idea/
+
 # secrets
 *.key
 *.secrets
 
-# directories
-extracts/
+# Specific to this repo
 data/
