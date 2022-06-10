@@ -55,16 +55,15 @@ def retrieve_events(api_key=None, **query_params):
     return response
 
 
-def parse_events(events, next_param, nextpage, page_num, status, wallet_address):
+def parse_events(events, page_num, wallet_address):
     """
+    Parse a dictionary representation of Response JSON object into a list of events. Each item in the list is a
+    dictionary representation of an asset event.
 
     Parameters
     ----------
-    events : a Response object containing a collection of Event objects
-    next_param
-    nextpage
+    events : a dictionary containing a collection of Event objects
     page_num
-    status
     wallet_address
 
     Returns
@@ -76,8 +75,7 @@ def parse_events(events, next_param, nextpage, page_num, status, wallet_address)
 
     if "asset_events" in events.keys():
 
-        asset_events = events["asset_events"]
-        for event in asset_events:
+        for event in events["asset_events"]:
             data = {}
 
             if event["asset"]:
@@ -130,7 +128,7 @@ def parse_events(events, next_param, nextpage, page_num, status, wallet_address)
 
             data["wallet_address_input"] = wallet_address
             data["pages"] = page_num
-            data["msg"] = status
+            data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
             data["next_param"] = events["next"]
 
             events_list.append(data)
@@ -139,13 +137,12 @@ def parse_events(events, next_param, nextpage, page_num, status, wallet_address)
         data = {"wallet_address_input": wallet_address,
                 "pages": page_num,
                 "msg": "Fail-no asset_events",
-                "next_param": next_param}
+                "next_param": events.get("next", "")}
         events_list.append(data)
 
-        print("wallet: " + wallet_address + " no asset_events!")
-        nextpage = False
+        raise KeyError("wallet: " + wallet_address + " no asset_events!")
 
-    return nextpage, events_list
+    return events_list
 
 
 def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
@@ -174,10 +171,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     for m in range_run:
 
         wallet_address = account_addresses[m]
-        nextpage = True
+        next_page = True
 
         try:
-            while nextpage:
+            while next_page:
 
                 events = retrieve_events(api_key,
                                          event_type=event_type,
@@ -185,12 +182,12 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                          account_address=wallet_address).json()
 
                 # save to local directory
-                # output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
                 # save to aws
-                output_dir = 's3://nftfomo/asset_events/' + wallet_address
+                # output_dir = 's3://nftfomo/asset_events/' + wallet_address
                 save_response_json(events, output_dir, page_num)
 
-                nextpage, e_list = parse_events(events, next_param, nextpage, page_num, status, wallet_address)
+                e_list = parse_events(events, page_num, wallet_address)
                 for event in e_list:
                     data_lis.append(event)
 
@@ -204,11 +201,11 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     page_num += 1
                 else:
                     next_param = ""
-                    nextpage = False
+                    next_page = False
 
                 # @TODO: for DEBUGGING, remember to comment or remove before production
-                if page_num == 2:
-                    nextpage = False
+                # if page_num == 2:
+                #     next_page = False
 
         except requests.exceptions.RequestException as e:
             print(repr(e))
