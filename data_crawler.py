@@ -13,6 +13,7 @@ import pathlib
 from os.path import isfile, join
 import threading
 import time
+import s3fs
 
 # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 # @TODO: move this to __main__ ?
@@ -90,7 +91,8 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                                          cursor=next_param,
                                          account_address=wallet_address).json()
 
-                output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                #output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                output_dir = 's3://nftfomo/asset_events/' + wallet_address
                 save_response_json(events, output_dir, page_num)
 
                 if "asset_events" in events.keys():
@@ -225,18 +227,39 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
             fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
             pd.DataFrame(data_lis) \
                 .reset_index(drop=True)\
-                .to_excel(os.path.join(os.getcwd(), 'extracts', fn), encoding="utf_8_sig")
+                .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
 
     return status
 
 
 def save_response_json(events, output_dir, page_num):
-    # create a subdirectory to save response json object
-    if not os.path.isdir(os.path.join(output_dir)):
-        os.makedirs(output_dir)
+    """
+    If output_dir begins with `s3://`, save the events JSON to AWS s3,
+    else save to the specified local directory.
 
-    with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
-        json.dump(events, fp=f)
+    Parameters
+    ----------
+    events
+    output_dir
+    page_num
+
+    Returns
+    -------
+
+    """
+    if output_dir.startswith('s3://'):
+        output_dir.removeprefix('s3://')
+        s3 = s3fs.S3FileSystem(anon=False)
+        rpath = output_dir + '/' + str(page_num) + '.json'
+        with s3.open(rpath, 'w') as f:
+            json.dump(events, fp=f)
+    else:
+        # create a subdirectory to save response json object
+        if not os.path.isdir(os.path.join(output_dir)):
+            os.makedirs(output_dir)
+
+        with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
+            json.dump(events, fp=f)
 
 
 def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
@@ -330,4 +353,4 @@ if __name__ == '__main__':
         globals()["add_thread%s" % nn].join()
 
     print("Start :" + start)
-    print("End   : " + str(datetime.datetime.now()))
+    print("End   :" + str(datetime.datetime.now()))
