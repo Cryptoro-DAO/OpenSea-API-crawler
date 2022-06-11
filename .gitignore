@@ -1,3 +1,7 @@
 # secrets
 *.key
+*.secrets
+
+# directories
 extracts/
+data/
