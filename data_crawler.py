@@ -15,8 +15,8 @@ import s3fs
 
 # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 # @TODO: move this to __main__ ?
-opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.xlsx')
-input_account_addresses = pd.read_excel(opensea_totaladdress)["token_owner_address"].array
+opensea_totaladdress = os.path.join(os.getcwd(), 'coolcatsnft_補跑清單0513.csv')
+input_account_addresses = pd.read_csv(opensea_totaladdress)['account_address'].array
 
 api_v1 = "https://api.opensea.io/api/v1"
 test_v1 = "https://testnets-api.opensea.io/api/v1/"
