@@ -15,6 +15,7 @@ import s3fs
 
 # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
 # @TODO: move this to __main__ ?
+# @TODO: make the csv header the query parameter key
 opensea_totaladdress = os.path.join(os.getcwd(), 'wallet_addresses.csv')
 input_account_addresses = pd.read_csv(opensea_totaladdress)['account_address'].array
 
@@ -143,14 +144,13 @@ def parse_events(events, page_num, wallet_address):
     return events_list
 
 
-def process_run(range_run, account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
+def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
     values, i.e. index of the list
 
     @TODO: not sure if thread_n is really needed here
 
-    :param range_run:
     :param account_addresses:
     :param data_lis:
     :param api_key:
@@ -166,7 +166,7 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
     global data_listb
     status = "success"
 
-    for m in range_run:
+    for m in range(len(account_addresses)):
         wallet_address = account_addresses[m]
 
         try:
@@ -212,10 +212,10 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                         "msg": msg,
                         "next_param": next_param}
                 data_lis.append(data)
-                time.sleep(6) # @TODO: make the sleep time adjustable?
+                time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            rerun_range = range(m, range_run[-1] + 1)
+            rerun_range = account_addresses[m:-1]
             if (thread_n % 2) == 0:
                 data_lista.append((rerun_range, next_param, page_num))
             else:
@@ -231,16 +231,13 @@ def process_run(range_run, account_addresses, data_lis, api_key, event_type, thr
                     "next_param": next_param}
             data_lis.append(data)
 
-            if m == range_run[-1] + 1:
-                status = "success"
+            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+            rerun_range = account_addresses[m:-1]
+            if (thread_n % 2) == 0:
+                data_lista.append((rerun_range, next_param, page_num))
             else:
-                # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-                rerun_range = range(m, range_run[-1] + 1)
-                if (thread_n % 2) == 0:
-                    data_lista.append((rerun_range, next_param, page_num))
-                else:
-                    data_listb.append((rerun_range, next_param, page_num))
-                status = "fail"
+                data_listb.append((rerun_range, next_param, page_num))
+            status = "fail"
 
         # 存檔，自己取名
         # output a file for every 50 account addresses processes or one file if less than 50 addresses total
@@ -283,12 +280,12 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
+def controlfunc(process_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
     global data_lista
     global data_listb
 
-    s_f = process_run(range_run, addresses, data_lis, api_key, event_type, thread_n, next_param)
+    s_f = process_run(addresses, data_lis, api_key, event_type, thread_n, next_param)
 
     rerun = True
     rerun_count = 0
@@ -300,15 +297,15 @@ def controlfunc(process_run, range_run, addresses, data_lis, api_key, event_type
         else:
             if (thread_n % 2) == 0:
                 if data_lista:
-                    range1_rerun, nxt, pg = data_lista.pop()
+                    addresses_rerun1, nxt, pg = data_lista.pop()
                     print("Rerun1 is preparing " + str(rerun_count))
-                    s_f = process_run(range1_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
+                    s_f = process_run(addresses_rerun1, data_lis, api_key, event_type, thread_n, nxt, pg)
                     rerun_count += 1
             else:
                 if data_listb:
-                    range2_rerun, nxt, pg = data_listb.pop()
+                    addresses_rerun2, nxt, pg = data_listb.pop()
                     print("Rerun2 is preparing " + str(rerun_count))
-                    s_f = process_run(range2_rerun, addresses, data_lis, api_key, event_type, thread_n, nxt, pg)
+                    s_f = process_run(addresses_rerun2, data_lis, api_key, event_type, thread_n, nxt, pg)
                     rerun_count += 1
             if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
                 rerun = False
@@ -329,7 +326,7 @@ if __name__ == '__main__':
     chunk_size : 要用多少筆數來切總列數(檔案)
     range_s : 執行首序列號
     range_e : 執行末序列號
-    EX. range(0,60) --> range_s=0 , range_e=60 , divide = 30
+    EX. range(0,60) --> range_s=0 , range_e=60 , chunk_size = 30
 
     api_key = opensea api key1
     api_key2 = opensea api key2
@@ -352,8 +349,8 @@ if __name__ == '__main__':
 
     data_lista = []
     data_listb = []
-    range_collection = list(chunks(range(range_s, range_e), chunk_size))
-    thread_n = len(range_collection)
+    addresses_list = list(chunks(input_account_addresses[range_s:range_e], chunk_size))
+    thread_n = len(addresses_list)
 
     start = str(datetime.datetime.now())
     for n in range(thread_n):
@@ -368,7 +365,7 @@ if __name__ == '__main__':
         # @TODO: Is there a better way to manage the return value,
         # i.e. Do we really need to pass in globals()["datalist%s" % n]?
         globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-            process_run, range_collection[n], input_account_addresses, globals()["datalist%s" % n], key_,
+            process_run, addresses_list[n], globals()["datalist%s" % n], key_,
             event_type, n))
         globals()["add_thread%s" % n].start()
 
