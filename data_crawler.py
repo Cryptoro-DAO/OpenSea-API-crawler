@@ -188,15 +188,17 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
                     data_lis.append(event)
 
                 # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
-                print("wallet: " + wallet_address + ", pages: "
-                      + str(page_num) + ", "
-                      + event["event_timestamp"])
+                print("thread: " + str(thread_n) +
+                      ", wallet: " + wallet_address +
+                      ", pages: " + str(page_num) +
+                      ", event_timestamp: " + event["event_timestamp"])
 
                 next_param = events["next"]
                 if next_param is not None:
                     page_num += 1
                 else:
                     next_param = ""
+                    page_num = 0
                     next_page = False
 
                 # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
@@ -241,11 +243,13 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
 
         # 存檔，自己取名
         # output a file for every 50 account addresses processes or one file if less than 50 addresses total
-        if (int(m) % 50 == 0 and int(m) > 0) or m == range_run[-1]:
+        # m+1 because m starts at 0
+        if (m+1) % 50 == 0 or (m+1) == len(account_addresses):
             fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
             pd.DataFrame(data_lis) \
                 .reset_index(drop=True)\
                 .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
+            data_lis = []
 
     return status
 
