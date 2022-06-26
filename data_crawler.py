@@ -159,11 +159,9 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
     :param next_param:
     :param page_num:
 
-    :return: status code: "success" or "fail"
+    :return: status code: "success" or "fail/rerun"
     """
-    # @TODO why global scope?
-    global data_lista
-    global data_listb
+
     status = "success"
 
     for m in range(len(account_addresses)):
@@ -206,23 +204,18 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
                 #     next_page = False
         except requests.exceptions.RequestException as e:
             print(repr(e))
+            msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
+            data = {"wallet_address_input": wallet_address,
+                    "pages": page_num,
+                    "msg": msg,
+                    "next_param": next_param}
+            data_lis.append(data)
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
             if e.response.status_code == 429:
-                msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
-                data = {"wallet_address_input": wallet_address,
-                        "pages": page_num,
-                        "msg": msg,
-                        "next_param": next_param}
-                data_lis.append(data)
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            rerun_range = account_addresses[m:-1]
-            if (thread_n % 2) == 0:
-                data_lista.append((rerun_range, next_param, page_num))
-            else:
-                data_listb.append((rerun_range, next_param, page_num))
-            status = "fail"
+            status = ("fail/rerun", account_addresses[m:], next_param, page_num)
         # @TODO: remove this catch all Exception
         except Exception as e:
             print(repr(e.args))
@@ -234,22 +227,17 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
             data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            rerun_range = account_addresses[m:-1]
-            if (thread_n % 2) == 0:
-                data_lista.append((rerun_range, next_param, page_num))
-            else:
-                data_listb.append((rerun_range, next_param, page_num))
-            status = "fail"
-
-        # 存檔，自己取名
-        # output a file for every 50 account addresses processes or one file if less than 50 addresses total
-        # m+1 because m starts at 0
-        if (m+1) % 50 == 0 or (m+1) == len(account_addresses):
-            fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
-            pd.DataFrame(data_lis) \
-                .reset_index(drop=True)\
-                .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
-            data_lis = []
+            status = ("fail/rerun", account_addresses[m:], next_param, page_num)
+        else:
+            # 存檔，自己取名
+            # output a file for every 50 account addresses processes or one file if less than 50 addresses total
+            # m+1 because m starts at 0
+            if (m+1) % 50 == 0 or (m+1) == len(account_addresses):
+                fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
+                pd.DataFrame(data_lis) \
+                    .reset_index(drop=True)\
+                    .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
+                data_lis = []
 
     return status
 
@@ -286,34 +274,23 @@ def save_response_json(events, output_dir, page_num):
 
 def controlfunc(process_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
-    global data_lista
-    global data_listb
 
     s_f = process_run(addresses, data_lis, api_key, event_type, thread_n, next_param)
 
-    rerun = True
     rerun_count = 0
-
+    rerun = True
     while rerun:
         if s_f == "success":
             rerun = False
-            print("finished!!!!")
+            print("thread {} finished!!!!".format(thread_n))
         else:
-            if (thread_n % 2) == 0:
-                if data_lista:
-                    addresses_rerun1, nxt, pg = data_lista.pop()
-                    print("Rerun1 is preparing " + str(rerun_count))
-                    s_f = process_run(addresses_rerun1, data_lis, api_key, event_type, thread_n, nxt, pg)
-                    rerun_count += 1
-            else:
-                if data_listb:
-                    addresses_rerun2, nxt, pg = data_listb.pop()
-                    print("Rerun2 is preparing " + str(rerun_count))
-                    s_f = process_run(addresses_rerun2, data_lis, api_key, event_type, thread_n, nxt, pg)
-                    rerun_count += 1
-            if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
-                rerun = False
-                print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
+            status, addresses_rerun, nxt, pg = s_f
+            rerun_count += 1
+            print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
+            s_f = process_run(addresses_rerun, data_lis, api_key, event_type, thread_n, nxt, pg)
+        if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
+            rerun = False
+            print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
 # 將檔案裡的數量分拆
@@ -336,9 +313,13 @@ if __name__ == '__main__':
     api_key2 = opensea api key2
     '''
     event_type = "successful"
+
     chunk_size = 1
     range_s = 0
-    range_e = 2
+    range_e = 4
+    # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
+    addresses_list = list(chunks(input_account_addresses[range_s:range_e], chunk_size))
+    thread_n = len(addresses_list)
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
@@ -348,13 +329,8 @@ if __name__ == '__main__':
         for line in f:
             (k, v) = line.rstrip().split('=')
             secrets[k] = v
-    api_key1 = secrets['api_key1']
-    api_key2 = secrets['api_key2']
-
-    data_lista = []
-    data_listb = []
-    addresses_list = list(chunks(input_account_addresses[range_s:range_e], chunk_size))
-    thread_n = len(addresses_list)
+        api_key1 = secrets['api_key1']
+        api_key2 = secrets['api_key2']
 
     start = str(datetime.datetime.now())
     for n in range(thread_n):
