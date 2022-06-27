@@ -13,11 +13,6 @@ import threading
 import time
 import s3fs
 
-# 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
-# @TODO: move this to __main__ ?
-# @TODO: make the csv header the query parameter key
-opensea_totaladdress = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-input_account_addresses = pd.read_csv(opensea_totaladdress)['account_address'].array
 
 api_v1 = "https://api.opensea.io/api/v1"
 test_v1 = "https://testnets-api.opensea.io/api/v1/"
@@ -334,14 +329,18 @@ if __name__ == '__main__':
     api_key = opensea api key1
     api_key2 = opensea api key2
     '''
+    # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
+    # @TODO: make the csv header the query parameter key
+    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    wallet_address_inputs = pd.read_csv(fn)['account_address'].array
     event_type = "successful"
 
     chunk_size = 1
     range_s = 0
     range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
-    addresses_list = list(chunks(input_account_addresses[range_s:range_e], chunk_size))
-    thread_n = len(addresses_list)
+    user_addresses = list(chunks(wallet_address_inputs[range_s:range_e], chunk_size))
+    thread_n = len(user_addresses)
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
