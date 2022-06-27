@@ -7,7 +7,7 @@ import json
 import requests
 import numpy as np
 import pandas as pd
-import datetime
+import datetime as dt
 import os
 import threading
 import time
@@ -293,9 +293,10 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(process_run, addresses, data_lis, api_key, event_type, thread_n, next_param=""):
+def controlfunc(process_run, addresses, api_key, event_type, thread_n, next_param=""):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
 
+    data_lis = []
     s_f = process_run(addresses, data_lis, api_key, event_type, thread_n, next_param)
 
     rerun_count = 0
@@ -353,9 +354,8 @@ if __name__ == '__main__':
         api_key1 = secrets['api_key1']
         api_key2 = secrets['api_key2']
 
-    start = str(datetime.datetime.now())
+    start = dt.datetime.now()
     for n in range(thread_n):
-        globals()["datalist%s" % n] = []
 
         # distribute keys among threads
         if (n % 2) == 0:
@@ -363,15 +363,12 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        # @TODO: Is there a better way to manage the return value,
-        # i.e. Do we really need to pass in globals()["datalist%s" % n]?
         globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-            process_run, addresses_list[n], globals()["datalist%s" % n], key_,
-            event_type, n))
+            process_run, addresses_list[n], key_, event_type, n))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_n):
         globals()["add_thread%s" % nn].join()
 
-    print("Start :" + start)
-    print("End   :" + str(datetime.datetime.now()))
+    print("Start: {}".format(start))
+    print("End  : {}".format(dt.datetime.now()))
