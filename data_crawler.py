@@ -152,7 +152,7 @@ def parse_events(events, page_num, wallet_address):
     return events_list
 
 
-def process_run(thread_n, api_param, api_key, addresses, next_param='', page_num=0, data_lis=[]):
+def process_run(thread_n, addresses, api_key, api_param, page_num=0, data_lis=[]):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -162,16 +162,19 @@ def process_run(thread_n, api_param, api_key, addresses, next_param='', page_num
     ----------
     thread_n : int
 
-    api_param : dict
+    addresses: list or array
 
-    api_key : str
-        Opensea API key; if none, call testnets-api
+    api-key : str
+
+    api_param : dict
+        event_type
+        next_param
+
     addresses : list or array
         A user account's wallet address to filter for events on an account
         .. asset_contract_address
         .. account_address
-    next_param
-    page_num
+    page_num : int
     data_lis : list
         a list to hold dictionaries of parsed asset event elements
 
@@ -182,21 +185,15 @@ def process_run(thread_n, api_param, api_key, addresses, next_param='', page_num
     """
 
     status = "success"
-
-    query_params = {}
-    while api_param:
-        param, value = api_param.popitem()
-        if param == 'event_type':
-            query_params['event_type'] = value
+    next_param = ""
 
     for m in range(len(addresses)):
         wallet_address = addresses[m]
-
+        api_param.update({'account_address': wallet_address})
         try:
             next_page = True
             while next_page:
-                query_params.update({'cursor': next_param, 'account_address': wallet_address})
-                events = retrieve_events(api_key, **query_params).json()
+                events = retrieve_events(api_key, **api_param).json()
 
                 # save each response JSON as a separate file
                 output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
@@ -216,6 +213,7 @@ def process_run(thread_n, api_param, api_key, addresses, next_param='', page_num
 
                 next_param = events["next"]
                 if next_param is not None:
+                    api_param['cursor'] = next_param
                     page_num += 1
                 else:
                     next_param = ""
@@ -295,7 +293,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, thread_n, api_params, api_key, addresses, next_param=''):
+def controlfunc(func, thread_n, addresses, api_key, api_params):
     """
 
     Parameters
@@ -304,10 +302,8 @@ def controlfunc(func, thread_n, api_params, api_key, addresses, next_param=''):
         for now, it is process_run
         @TODO different function to process for example retrieve collections
     thread_n
-    api_params : dict
-    api_key
     addresses
-    next_param
+    api_params : dict
 
     Returns
     -------
@@ -316,7 +312,7 @@ def controlfunc(func, thread_n, api_params, api_key, addresses, next_param=''):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
 
     data_lis = []  # a temporary list to hold the processed values
-    s_f = func(thread_n, api_params, api_key, addresses, next_param, data_lis=data_lis)
+    s_f = func(thread_n, addresses, api_key, api_params, data_lis=data_lis)
 
     rerun_count = 0
     rerun = True
@@ -326,9 +322,10 @@ def controlfunc(func, thread_n, api_params, api_key, addresses, next_param=''):
             print("thread {} finished!!!!".format(thread_n))
         else:
             status, addresses_rerun, nxt, pg = s_f
+            api_params.update({'cursor': nxt})
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
-            s_f = func(thread_n, api_params, api_key, addresses_rerun, nxt, pg, data_lis=data_lis)
+            s_f = func(thread_n, addresses_rerun, api_key, api_params, pg, data_lis=data_lis)
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
             print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
@@ -387,8 +384,7 @@ if __name__ == '__main__':
 
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, {'addresses': address_chunks[n], 'event_type': 'successful'},
-                                   key_, address_chunks[n]))
+                   args=(process_run, n, address_chunks[n], key_, {'event_type': 'successful'}))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
