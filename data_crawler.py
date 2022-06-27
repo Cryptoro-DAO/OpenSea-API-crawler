@@ -146,7 +146,7 @@ def parse_events(events):
     return events_list
 
 
-def process_run(thread_n, addresses, api_key, api_param, page_num=0, data_lis=[]):
+def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -156,34 +156,33 @@ def process_run(thread_n, addresses, api_key, api_param, page_num=0, data_lis=[]
     ----------
     thread_n : int
 
-    addresses: list or array
-
+    addresses : list or array
+        A user account's wallet address to filter for events on an account
+        .. asset_contract_address
+        .. account_address
     api-key : str
 
     api_param : dict
         event_type
         next_param
 
-    addresses : list or array
-        A user account's wallet address to filter for events on an account
-        .. asset_contract_address
-        .. account_address
     page_num : int
     data_lis : list
         a list to hold dictionaries of parsed asset event elements
+
 
     Returns
     -------
     status code
         "success" or "fail/rerun"
     """
-
     status = "success"
     next_param = ""
 
     for m in range(len(addresses)):
         wallet_address = addresses[m]
         api_param.update({'account_address': wallet_address})
+        # api_param.update({'asset_contract_address': wallet_address})
         try:
             next_page = True
             while next_page:
@@ -289,7 +288,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, thread_n, addresses, api_key, api_params):
+def controlfunc(func, thread_n, api_key, addresses, api_params):
     """
 
     Parameters
@@ -308,7 +307,7 @@ def controlfunc(func, thread_n, addresses, api_key, api_params):
     # process_run的外層函數，當執行中斷時自動繼續往下執行
 
     data_lis = []  # a temporary list to hold the processed values
-    s_f = func(thread_n, addresses, api_key, api_params, data_lis=data_lis)
+    s_f = func(thread_n, api_key, addresses, api_params, data_lis=data_lis)
 
     rerun_count = 0
     rerun = True
@@ -321,7 +320,7 @@ def controlfunc(func, thread_n, addresses, api_key, api_params):
             api_params.update({'cursor': nxt})
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
-            s_f = func(thread_n, addresses_rerun, api_key, api_params, pg, data_lis=data_lis)
+            s_f = func(thread_n, api_key, addresses_rerun, api_params, pg, data_lis=data_lis)
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
             print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
@@ -380,7 +379,7 @@ if __name__ == '__main__':
 
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, address_chunks[n], key_, {'event_type': 'successful'}))
+                   args=(process_run, n, key_, address_chunks[n], {'event_type': 'successful'}))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
