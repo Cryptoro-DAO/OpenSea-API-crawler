@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import os
-import threading
+from threading import Thread
 import time
 import s3fs
 
@@ -152,7 +152,7 @@ def parse_events(events, page_num, wallet_address):
     return events_list
 
 
-def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
+def process_run(thread_n, api_param, api_key, account_addresses, event_type, next_param='', page_num=0, data_lis=[]):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -160,17 +160,21 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
 
     Parameters
     ----------
-    account_addresses : list or array
-        A user account's wallet address to filter for events on an account
-    data_lis : list
-        a list to hold dictionaries of parsed asset event elements
+    thread_n : int
+
+    api_param : dict
+
     api_key : str
         Opensea API key; if none, call testnets-api
+    account_addresses : list or array
+        A user account's wallet address to filter for events on an account
     event_type : str
         "successful", "transfer", etc., ee OpenSea API doc
-    thread_n
+
     next_param
     page_num
+    data_lis : list
+        a list to hold dictionaries of parsed asset event elements
 
     Returns
     -------
@@ -186,10 +190,8 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
         try:
             next_page = True
             while next_page:
-                events = retrieve_events(api_key,
-                                         event_type=event_type,
-                                         cursor=next_param,
-                                         account_address=wallet_address).json()
+                query_params = {'event_type': event_type, 'cursor': next_param, 'account_address': wallet_address}
+                events = retrieve_events(api_key, **query_params).json()
 
                 # save each response JSON as a separate file
                 output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
@@ -288,11 +290,28 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(process_run, addresses, api_key, event_type, thread_n, next_param=""):
+def controlfunc(func, thread_n, api_params, api_key, addresses, event_type, next_param=''):
+    """
+
+    Parameters
+    ----------
+    thread_n
+    api_params : dict
+    api_key
+    addresses
+    event_type : str
+        created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve
+
+    next_param
+
+    Returns
+    -------
+
+    """
     # process_run的外層函數，當執行中斷時自動繼續往下執行
 
-    data_lis = []
-    s_f = process_run(addresses, data_lis, api_key, event_type, thread_n, next_param)
+    data_lis = []  # a temporary list to hold the processed values
+    s_f = func(thread_n, api_params, api_key, addresses, event_type, next_param, data_lis=data_lis)
 
     rerun_count = 0
     rerun = True
@@ -304,7 +323,7 @@ def controlfunc(process_run, addresses, api_key, event_type, thread_n, next_para
             status, addresses_rerun, nxt, pg = s_f
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
-            s_f = process_run(addresses_rerun, data_lis, api_key, event_type, thread_n, nxt, pg)
+            s_f = func(thread_n, api_params, api_key, addresses_rerun, event_type, nxt, pg, data_lis)
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
             print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
@@ -320,7 +339,6 @@ def chunks(lst, n):
 if __name__ == '__main__':
     '''
     以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
-    event_type : 設定要抓取的事件(created, successful, cancelled, bid_entered, bid_withdrawn, transfer, offer_entered, approve)
     chunk_size : 要用多少筆數來切總列數(檔案)
     range_s : 執行首序列號
     range_e : 執行末序列號
@@ -333,14 +351,12 @@ if __name__ == '__main__':
     # @TODO: make the csv header the query parameter key
     fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
     wallet_address_inputs = pd.read_csv(fn)['account_address'].array
-    event_type = "successful"
 
     chunk_size = 1
     range_s = 0
     range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
-    user_addresses = list(chunks(wallet_address_inputs[range_s:range_e], chunk_size))
-    thread_n = len(user_addresses)
+    address_chunks = list(chunks(wallet_address_inputs[range_s:range_e], chunk_size))
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
@@ -354,7 +370,9 @@ if __name__ == '__main__':
         api_key2 = secrets['api_key2']
 
     start = dt.datetime.now()
-    for n in range(thread_n):
+    # spawn threads based on the number of chucks
+    thread_sz = len(address_chunks)
+    for n in range(thread_sz):
 
         # distribute keys among threads
         if (n % 2) == 0:
@@ -362,11 +380,13 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        globals()["add_thread%s" % n] = threading.Thread(target=controlfunc, args=(
-            process_run, addresses_list[n], key_, event_type, n))
+        globals()["add_thread%s" % n] = \
+            Thread(target=controlfunc,
+                   args=(process_run, n, {'addresses': address_chunks[n], 'event_type': 'successful'},
+                                   key_, address_chunks[n], 'successful'))
         globals()["add_thread%s" % n].start()
 
-    for nn in range(thread_n):
+    for nn in range(thread_sz):
         globals()["add_thread%s" % nn].join()
 
     print("Start: {}".format(start))
