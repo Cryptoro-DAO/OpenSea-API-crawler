@@ -27,10 +27,23 @@ def retrieve_events(api_key=None, **query_params):
     """
     OpenSea Retrieve Events wrapper
 
-    :param api_key: an OpenSea API Key. If not defined, call testnets-api.
-    :param query_params: param_key=string_value, e.g. only_opensea="True"
-    :return: dict representation of Response JSON object
+    Parameters
+    ----------
+    api_key : str
+        an OpenSea API Key. If not defined, call testnets-api.
+    query_params
+        param_key=string_value, e.g. only_opensea="True"
+
+    Returns
+    -------
+    Response
+        a list of asset events objects and query cusors: next, previous
+
+    Raises
+    ------
+    HTTPError
     """
+
     headers = {"X-API-KEY": api_key}
 
     if api_key is None:
@@ -146,20 +159,28 @@ def parse_events(events, page_num, wallet_address):
 
 def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next_param="", page_num=0):
     """
-    Retrieve asset events via OpenSea API based on a list of account addresses specified by 'range_run'
-    values, i.e. index of the list
+    Retrieve asset events via OpenSea API based on a list of account addresses
 
     @TODO: not sure if thread_n is really needed here
 
-    :param account_addresses:
-    :param data_lis:
-    :param api_key:
-    :param event_type: see OpenSea API doc, e.g. "successful", "transfer", etc.
-    :param thread_n:
-    :param next_param:
-    :param page_num:
+    Parameters
+    ----------
+    account_addresses : list or array
+        A user account's wallet address to filter for events on an account
+    data_lis : list
+        a list to hold dictionaries of parsed asset event elements
+    api_key : str
+        Opensea API key; if none, call testnets-api
+    event_type : str
+        "successful", "transfer", etc., ee OpenSea API doc
+    thread_n
+    next_param
+    page_num
 
-    :return: status code: "success" or "fail/rerun"
+    Returns
+    -------
+    status code
+        "success" or "fail/rerun"
     """
 
     status = "success"
@@ -235,7 +256,7 @@ def process_run(account_addresses, data_lis, api_key, event_type, thread_n, next
             if (m+1) % 50 == 0 or (m+1) == len(account_addresses):
                 fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
                 pd.DataFrame(data_lis) \
-                    .reset_index(drop=True)\
+                    .reset_index(drop=True) \
                     .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
                 data_lis = []
 
