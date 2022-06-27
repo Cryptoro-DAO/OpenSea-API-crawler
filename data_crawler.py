@@ -62,7 +62,7 @@ def retrieve_events(api_key=None, **query_params):
     return response
 
 
-def parse_events(events, page_num, wallet_address):
+def parse_events(events):
     """
     Parse a dictionary representation of Response JSON object into a list of events. Each item in the list is a
     dictionary representation of an asset event.
@@ -70,8 +70,6 @@ def parse_events(events, page_num, wallet_address):
     Parameters
     ----------
     events : a dictionary containing a collection of Event objects
-    page_num
-    wallet_address
 
     Returns
     -------
@@ -133,17 +131,13 @@ def parse_events(events, page_num, wallet_address):
 
             data["contract_address"] = event["contract_address"]
 
-            data["wallet_address_input"] = wallet_address
-            data["pages"] = page_num
             data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
             data["next_param"] = events["next"]
 
             events_list.append(data)
     else:
         # @TODO: except KeyError
-        data = {"wallet_address_input": wallet_address,
-                "pages": page_num,
-                "msg": "Fail-no asset_events",
+        data = {"msg": "Fail-no asset_events",
                 "next_param": events.get("next", "")}
         events_list.append(data)
 
@@ -201,8 +195,10 @@ def process_run(thread_n, addresses, api_key, api_param, page_num=0, data_lis=[]
                 # output_dir = 's3://nftfomo/asset_events/' + wallet_address
                 save_response_json(events, output_dir, page_num)
 
-                e_list = parse_events(events, page_num, wallet_address)
+                e_list = parse_events(events)
                 for event in e_list:
+                    event["wallet_address_input"] = wallet_address
+                    event["pages"] = page_num
                     data_lis.append(event)
 
                 # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
