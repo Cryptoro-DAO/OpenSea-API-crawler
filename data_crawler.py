@@ -146,7 +146,7 @@ def parse_events(events):
     return events_list
 
 
-def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]):
+def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -162,9 +162,13 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
         .. account_address
     api-key : str
 
-    api_param : dict
+    api_params : dict
         event_type
-        next_param
+        cursor
+        currently can only filter one of:
+            account_address : list
+            asset_contract_address : list
+            * do not specify more than one
 
     page_num : int
     data_lis : list
@@ -179,17 +183,25 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
     status = "success"
     next_param = ""
 
+    # check type of addresses {'account_address', 'asset_contract_address'}
+    for param, value in api_params.items():
+        if param in ['account_address', 'asset_contract_address']:
+            address_filter = param
+            addresses = value
+
+    data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
     for m in range(len(addresses)):
         wallet_address = addresses[m]
-        api_param.update({'account_address': wallet_address})
+        api_params.update({address_filter: wallet_address})
+        # api_param.update({'account_address': wallet_address})
         # api_param.update({'asset_contract_address': wallet_address})
         try:
             next_page = True
             while next_page:
-                events = retrieve_events(api_key, **api_param).json()
+                events = retrieve_events(api_key, **api_params).json()
 
                 # save each response JSON as a separate file
-                output_dir = os.path.join(os.getcwd(), 'data', 'asset_events', wallet_address)
+                output_dir = os.path.join(data_dir, wallet_address)
                 # save to aws
                 # output_dir = 's3://nftfomo/asset_events/' + wallet_address
                 save_response_json(events, output_dir, page_num)
@@ -201,14 +213,13 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
                     data_lis.append(event)
 
                 # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
-                print("thread: " + str(thread_n) +
-                      ", wallet: " + wallet_address +
-                      ", pages: " + str(page_num) +
-                      ", event_timestamp: " + event["event_timestamp"])
+
+                print("thread: {}, wallet: {}, page: {}, event_timestamp: {}"
+                      .format(thread_n, wallet_address, page_num, event["event_timestamp"]))
 
                 next_param = events["next"]
                 if next_param is not None:
-                    api_param['cursor'] = next_param
+                    api_params['cursor'] = next_param
                     page_num += 1
                 else:
                     next_param = ""
@@ -219,6 +230,8 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
                 # if page_num == 2:
                 #     next_page = False
         except requests.exceptions.RequestException as e:
+            # @TODO: better workaround when 429 Client Error: Too Many Requests for url
+            # @TODO: 524 Server Error << Cloudflare Timeout?
             print(repr(e))
             msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
             data = {"wallet_address_input": wallet_address,
@@ -226,7 +239,6 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
                     "msg": msg,
                     "next_param": next_param}
             data_lis.append(data)
-            # @TODO: better workaround when 429 Client Error: Too Many Requests for url
             if e.response.status_code == 429:
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
@@ -252,7 +264,7 @@ def process_run(thread_n, api_key, addresses, api_param, page_num=0, data_lis=[]
                 fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
                 pd.DataFrame(data_lis) \
                     .reset_index(drop=True) \
-                    .to_excel(os.path.join(os.getcwd(), 'data', 'asset_events', fn), encoding="utf_8_sig")
+                    .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
                 data_lis = []
 
     return status
@@ -288,8 +300,9 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, thread_n, api_key, addresses, api_params):
+def controlfunc(func, thread_n, api_key, api_params):
     """
+    process_run的外層函數，當執行中斷時自動繼續往下執行
 
     Parameters
     ----------
@@ -297,17 +310,16 @@ def controlfunc(func, thread_n, api_key, addresses, api_params):
         for now, it is process_run
         @TODO different function to process for example retrieve collections
     thread_n
-    addresses
+    api_key
     api_params : dict
 
     Returns
     -------
 
     """
-    # process_run的外層函數，當執行中斷時自動繼續往下執行
 
     data_lis = []  # a temporary list to hold the processed values
-    s_f = func(thread_n, api_key, addresses, api_params, data_lis=data_lis)
+    s_f = func(thread_n, api_key, api_params, data_lis=data_lis)
 
     rerun_count = 0
     rerun = True
@@ -317,16 +329,15 @@ def controlfunc(func, thread_n, api_key, addresses, api_params):
             print("thread {} finished!!!!".format(thread_n))
         else:
             status, addresses_rerun, nxt, pg = s_f
-            api_params.update({'cursor': nxt})
+            api_params.update({'account_address': addresses_rerun, 'cursor': nxt})
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
-            s_f = func(thread_n, api_key, addresses_rerun, api_params, pg, data_lis=data_lis)
+            s_f = func(thread_n, api_key, api_params, pg, data_lis=data_lis)
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
             print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
-# 將檔案裡的數量分拆
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
@@ -379,7 +390,7 @@ if __name__ == '__main__':
 
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, key_, address_chunks[n], {'event_type': 'successful'}))
+                   args=(process_run, n, key_, {'account_address':  address_chunks[n], 'event_type': 'successful'}))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
