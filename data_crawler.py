@@ -146,7 +146,7 @@ def parse_events(events):
     return events_list
 
 
-def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
+def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -155,31 +155,28 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
     Parameters
     ----------
     thread_n : int
-
-    addresses : list or array
-        A user account's wallet address to filter for events on an account
-        .. asset_contract_address
-        .. account_address
-    api-key : str
-
+        index to track the thread number
+    api_key : str
+        OpenSea API key, if None or '', testnets-api is used
     api_params : dict
+        query parameters:
         event_type
         cursor
-        currently can only filter one of:
             account_address : list
             asset_contract_address : list
-            * do not specify more than one
-
+        * currently supports only one list at a time, do not specify both account_address and asset_contract_address
     page_num : int
+        index to track the number of event pages, see cursor
     data_lis : list
         a list to hold dictionaries of parsed asset event elements
-
 
     Returns
     -------
     status code
         "success" or "fail/rerun"
     """
+    if data_lis is None:
+        data_lis = []
     status = "success"
     next_param = ""
 
