@@ -217,12 +217,16 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                     api_params['cursor'] = next_param
                     page_num += 1
                 else:
+                    api_params.pop('cursor')
                     next_param = ''
                     page_num = 0
                     next_page = False
 
                 # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
                 # if page_num == 2:
+                #     api_params.pop('cursor')
+                #     next_param = ''
+                #     page_num = 0
                 #     next_page = False
         except requests.exceptions.RequestException as e:
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
@@ -331,7 +335,7 @@ def controlfunc(func, thread_n, api_key, api_params):
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
-            print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
+            print(f"Thread {thread_n} abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
 
 
 def chunks(lst, n):
