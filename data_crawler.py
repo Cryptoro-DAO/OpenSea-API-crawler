@@ -141,7 +141,7 @@ def parse_events(events):
                 "next_param": events.get("next", "")}
         events_list.append(data)
 
-        raise KeyError("wallet: " + wallet_address + " no asset_events!")
+        raise KeyError("no asset_events!")
 
     return events_list
 
