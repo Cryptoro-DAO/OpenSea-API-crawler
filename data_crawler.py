@@ -362,9 +362,9 @@ if __name__ == '__main__':
     fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
     address_inputs = pd.read_csv(fn)['collection_address'].values
 
-    chunk_size = 1
+    chunk_size = 7
     range_s = 0
-    range_e = 4
+    range_e = 21
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
     address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
 
