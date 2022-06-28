@@ -191,38 +191,37 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
 
     data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
     for m in range(len(addresses)):
-        wallet_address = addresses[m]
-        api_params.update({address_filter: wallet_address})
-        # api_param.update({'account_address': wallet_address})
-        # api_param.update({'asset_contract_address': wallet_address})
+        _address = addresses[m]
+        api_params.update({address_filter: _address})
+
         try:
             next_page = True
             while next_page:
                 events = retrieve_events(api_key, **api_params).json()
 
                 # save each response JSON as a separate file
-                output_dir = os.path.join(data_dir, wallet_address)
+                output_dir = os.path.join(data_dir, _address)
                 # save to aws
-                # output_dir = 's3://nftfomo/asset_events/' + wallet_address
+                # output_dir = 's3://nftfomo/asset_events/' + _address
                 save_response_json(events, output_dir, page_num)
 
                 e_list = parse_events(events)
                 for event in e_list:
-                    event["wallet_address_input"] = wallet_address
-                    event["pages"] = page_num
+                    event[address_filter + '_input'] = _address
+                    event['pages'] = page_num
                     data_lis.append(event)
 
                 # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
 
                 print("thread: {}, wallet: {}, page: {}, event_timestamp: {}"
-                      .format(thread_n, wallet_address, page_num, event["event_timestamp"]))
+                      .format(thread_n, _address, page_num, event['event_timestamp']))
 
-                next_param = events["next"]
+                next_param = events['next']
                 if next_param is not None:
                     api_params['cursor'] = next_param
                     page_num += 1
                 else:
-                    next_param = ""
+                    next_param = ''
                     page_num = 0
                     next_page = False
 
@@ -233,8 +232,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
             # @TODO: 524 Server Error << Cloudflare Timeout?
             print(repr(e))
-            msg = "Response [{0}]: {1}".format(e.response.status_code, e.response.reason)
-            data = {"wallet_address_input": wallet_address,
+            msg = f"Response [{e.response.status_code}]: {e.response.reason}"
+            data = {address_filter + "_input": _address,
                     "pages": page_num,
                     "msg": msg,
                     "next_param": next_param}
@@ -248,7 +247,7 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
         except Exception as e:
             print(repr(e.args))
             msg = "SOMETHING WRONG"
-            data = {"wallet_address_input": wallet_address,
+            data = {address_filter + "_input": _address,
                     "pages": page_num,
                     "msg": msg,
                     "next_param": next_param}
