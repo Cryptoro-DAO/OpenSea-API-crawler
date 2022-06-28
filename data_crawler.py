@@ -374,12 +374,12 @@ if __name__ == '__main__':
     '''
     # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
     # @TODO: make the csv header the query parameter key
-    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    address_inputs = pd.read_csv(fn)['account_address'].values
-    # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    # address_inputs = pd.read_csv(fn)['collection_address'].values
+    # fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    # address_inputs = pd.read_csv(fn)['account_address'].values
+    fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
+    address_inputs = pd.read_csv(fn)['collection_address'].values
 
-    chunk_size = 1
+    chunk_size = 7
     range_s = 0
     range_e = 21
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
@@ -396,19 +396,19 @@ if __name__ == '__main__':
         api_key1 = secrets['api_key1']
         api_key2 = secrets['api_key2']
 
-    start = dt.datetime.now()
+    logger.info("Start")
     # spawn threads based on the number of chucks
     thread_sz = len(address_chunks)
     for n in range(thread_sz):
-
         # distribute keys among threads
         if (n % 2) == 0:
             key_ = api_key1
         else:
             key_ = api_key2
 
-        filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
                    args=(process_run, n, key_, filter_params))
@@ -417,5 +417,4 @@ if __name__ == '__main__':
     for nn in range(thread_sz):
         globals()["add_thread%s" % nn].join()
 
-    logger.info("Start: {}".format(start))
-    logger.info("End  : {}".format(dt.datetime.now()))
+    logger.info("End")
