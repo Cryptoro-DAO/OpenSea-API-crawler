@@ -212,9 +212,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
                     data_lis.append(event)
 
                 # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
-
-                print("thread: {}, wallet: {}, page: {}, event_timestamp: {}"
-                      .format(thread_n, _address, page_num, event['event_timestamp']))
+                # print("thread: {}, {}: {}, page: {}, event_timestamp: {}"
+                #       .format(thread_n, address_filter, _address, page_num, event['event_timestamp']))
 
                 next_param = events['next']
                 if next_param is not None:
@@ -242,7 +241,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            status = ("fail/rerun", addresses[m:], next_param, page_num)
+            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
+            status = ("fail/rerun", api_params, page_num)
         # @TODO: remove this catch all Exception
         except Exception as e:
             print(repr(e.args))
@@ -254,13 +254,14 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=[]):
             data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            status = ("fail/rerun", addresses[m:], next_param, page_num)
+            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
+            status = ("fail/rerun", api_params, page_num)
         else:
             # 存檔，自己取名
             # output a file for every 50 account addresses processes or one file if less than 50 addresses total
             # m+1 because m starts at 0
             if (m+1) % 50 == 0 or (m+1) == len(addresses):
-                fn = "coolcatsnft_{0}_{1}.xlsx".format(thread_n, m)
+                fn = "{}_{}_{}.xlsx".format(address_filter, thread_n, m)
                 pd.DataFrame(data_lis) \
                     .reset_index(drop=True) \
                     .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
@@ -327,8 +328,7 @@ def controlfunc(func, thread_n, api_key, api_params):
             rerun = False
             print("thread {} finished!!!!".format(thread_n))
         else:
-            status, addresses_rerun, nxt, pg = s_f
-            api_params.update({'account_address': addresses_rerun, 'cursor': nxt})
+            status, api_params, pg = s_f
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
             s_f = func(thread_n, api_key, api_params, pg, data_lis=data_lis)
@@ -351,19 +351,21 @@ if __name__ == '__main__':
     range_e : 執行末序列號
     EX. range(0,60) --> range_s=0 , range_e=60 , chunk_size = 30
 
-    api_key = opensea api key1
+    api_key1 = opensea api key1
     api_key2 = opensea api key2
     '''
     # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
     # @TODO: make the csv header the query parameter key
-    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    wallet_address_inputs = pd.read_csv(fn)['account_address'].array
+    # fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    # address_inputs = pd.read_csv(fn)['account_address'].values
+    fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
+    address_inputs = pd.read_csv(fn)['collection_address'].values
 
     chunk_size = 1
     range_s = 0
     range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
-    address_chunks = list(chunks(wallet_address_inputs[range_s:range_e], chunk_size))
+    address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
@@ -387,9 +389,11 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
+        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful'}
+        filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, key_, {'account_address':  address_chunks[n], 'event_type': 'successful'}))
+                   args=(process_run, n, key_, filter_params))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
