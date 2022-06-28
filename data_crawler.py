@@ -319,19 +319,19 @@ def controlfunc(func, thread_n, api_key, api_params):
     """
 
     data_lis = []  # a temporary list to hold the processed values
-    s_f = func(thread_n, api_key, api_params, data_lis=data_lis)
 
     rerun_count = 0
+    page_num = 0
     rerun = True
     while rerun:
+        s_f = func(thread_n, api_key, api_params, page_num, data_lis=data_lis)
         if s_f == "success":
             rerun = False
             print("thread {} finished!!!!".format(thread_n))
         else:
-            status, api_params, pg = s_f
+            status, api_params, page_num = s_f
             rerun_count += 1
             print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
-            s_f = func(thread_n, api_key, api_params, pg, data_lis=data_lis)
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
             print("abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
