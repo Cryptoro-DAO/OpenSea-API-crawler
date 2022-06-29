@@ -246,18 +246,33 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                 #     next_param = ''
                 #     page_num = 0
                 #     next_page = False
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.HTTPError as err:
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
+            # @TODO: 520 Server Error
             # @TODO: 524 Server Error << Cloudflare Timeout?
+            logger.error(repr(err))
+            msg = f'Response [{err.response.status_code}]: {err.response.reason}'
+            data = {address_filter + '_input': _address,
+                    'pages': page_num,
+                    'msg': msg,
+                    'next_param': next_param}
+            data_lis.append(data)
+            if err.response.status_code == 429:
+                time.sleep(6)  # @TODO: make the sleep time adjustable?
+
+            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
+            status = ("fail/rerun", api_params, page_num)
+        # except requests.exceptions.SSLError
+        # @TODO: requests.exceptions.SSLError: HTTPSConnectionPool(host='api.opensea.io', port=443): Max retries exceeded with url
+        except requests.exceptions.RequestException as e:
             logger.error(repr(e))
-            msg = f"Response [{e.response.status_code}]: {e.response.reason}"
+            msg = str(e)
             data = {address_filter + "_input": _address,
                     "pages": page_num,
                     "msg": msg,
                     "next_param": next_param}
             data_lis.append(data)
-            if e.response.status_code == 429:
-                time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
