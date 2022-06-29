@@ -18,7 +18,7 @@ from threading import Thread
 logger = logging.getLogger('data_crawler')
 logger.setLevel(logging.DEBUG)
 # create file handler which logs even debug messages
-fh = logging.FileHandler('log\crawler.log')
+fh = logging.FileHandler('log/crawler.log')
 fh.setLevel(logging.DEBUG)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
@@ -49,7 +49,7 @@ def retrieve_events(api_key=None, **query_params):
     Returns
     -------
     Response
-        a list of asset events objects and query cusors: next, previous
+        a list of asset events objects and query cursors: next, previous
 
     Raises
     ------
@@ -411,6 +411,7 @@ if __name__ == '__main__':
         api_key1 = secrets['api_key1']
         api_key2 = secrets['api_key2']
 
+    start = dt.datetime.now()
     logger.info("Start")
     # spawn threads based on the number of chucks
     thread_sz = len(address_chunks)
@@ -432,4 +433,4 @@ if __name__ == '__main__':
     for nn in range(thread_sz):
         globals()["add_thread%s" % nn].join()
 
-    logger.info("End")
+    logger.info("End! Total time: {}".format(dt.datetime.now() - start))
