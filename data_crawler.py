@@ -9,10 +9,27 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import os
-from threading import Thread
 import time
 import s3fs
+import logging
+from threading import Thread
 
+# create logger with 'spam_application'
+logger = logging.getLogger('data_crawler')
+logger.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler('log/crawler.log')
+fh.setLevel(logging.DEBUG)
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+# create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(threadName)s: %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+# add the handlers to the logger
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 api_v1 = "https://api.opensea.io/api/v1"
 test_v1 = "https://testnets-api.opensea.io/api/v1/"
@@ -32,7 +49,7 @@ def retrieve_events(api_key=None, **query_params):
     Returns
     -------
     Response
-        a list of asset events objects and query cusors: next, previous
+        a list of asset events objects and query cursors: next, previous
 
     Raises
     ------
@@ -146,22 +163,18 @@ def parse_events(events):
     return events_list
 
 
-def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
+def process_run(api_key, api_params, page_num=0, data_lis=None):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
-    @TODO: not sure if thread_n is really needed here
-
     Parameters
     ----------
-    thread_n : int
-        index to track the thread number
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
     api_params : dict
         query parameters:
-        event_type
-        cursor
+            event_type
+            cursor
             account_address : list
             asset_contract_address : list
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
@@ -187,8 +200,7 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             addresses = value
 
     data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
-    for m in range(len(addresses)):
-        _address = addresses[m]
+    for m, _address in enumerate(addresses):
         api_params.update({address_filter: _address})
 
         try:
@@ -207,10 +219,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                     event[address_filter + '_input'] = _address
                     event['pages'] = page_num
                     data_lis.append(event)
-
-                # @TODO: for DEBUGGING, remember to comment out or implement logging to speed up production
-                # print("thread: {}, {}: {}, page: {}, event_timestamp: {}"
-                #       .format(thread_n, address_filter, _address, page_num, event['event_timestamp']))
+                logger.debug('{}: {}, page: {}, event_timestamp: {}'
+                             .format(address_filter, _address, page_num, event['event_timestamp']))
 
                 next_param = events['next']
                 if next_param is not None:
@@ -228,25 +238,42 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                 #     next_param = ''
                 #     page_num = 0
                 #     next_page = False
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.HTTPError as err:
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
+            # @TODO: 520 Server Error
             # @TODO: 524 Server Error << Cloudflare Timeout?
-            print(repr(e))
-            msg = f"Response [{e.response.status_code}]: {e.response.reason}"
+            logger.error(repr(err))
+            msg = f'Response [{err.response.status_code}]: {err.response.reason}'
+            data = {address_filter + '_input': _address,
+                    'pages': page_num,
+                    'msg': msg,
+                    'next_param': next_param}
+            data_lis.append(data)
+            if err.response.status_code == 429:
+                time.sleep(6)  # @TODO: make the sleep time adjustable?
+
+            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
+            status = ("fail/rerun", api_params, page_num)
+        # except requests.exceptions.SSLError
+        # @TODO: requests.exceptions.SSLError:
+        #   HTTPSConnectionPool(host='api.opensea.io', port=443):
+        #   Max retries exceeded with url
+        except requests.exceptions.RequestException as e:
+            logger.error(repr(e))
+            msg = str(e)
             data = {address_filter + "_input": _address,
                     "pages": page_num,
                     "msg": msg,
                     "next_param": next_param}
             data_lis.append(data)
-            if e.response.status_code == 429:
-                time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
             status = ("fail/rerun", api_params, page_num)
         # @TODO: remove this catch all Exception
         except Exception as e:
-            print(repr(e.args))
+            logger.error(repr(e.args))
             msg = "SOMETHING WRONG"
             data = {address_filter + "_input": _address,
                     "pages": page_num,
@@ -258,17 +285,24 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
             status = ("fail/rerun", api_params, page_num)
         else:
-            # 存檔，自己取名
-            # output a file for every 50 account addresses processes or one file if less than 50 addresses total
-            # m+1 because m starts at 0
-            if (m+1) % 50 == 0 or (m+1) == len(addresses):
-                fn = "{}_{}_{}.xlsx".format(address_filter, thread_n, m)
-                pd.DataFrame(data_lis) \
-                    .reset_index(drop=True) \
-                    .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
-                data_lis = []
+            # @TODO: this method won't scale
+            # data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
+            logger.debug('not going to save to Excel')
 
     return status
+
+
+def to_excel(address_filter, addresses, data_dir, data_lis, m):
+    # 存檔，自己取名
+    # output a file for every 50 account addresses processes or one file if less than 50 addresses total
+    # m+1 because m starts at 0
+    if (m + 1) % 50 == 0 or (m + 1) == len(addresses):
+        fn = "{}_{}.xlsx".format(address_filter, m)
+        pd.DataFrame(data_lis) \
+            .reset_index(drop=True) \
+            .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
+        data_lis = []
+    return data_lis
 
 
 def save_response_json(events, output_dir, page_num):
@@ -301,7 +335,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, thread_n, api_key, api_params):
+def controlfunc(func, api_key, api_params):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -310,7 +344,6 @@ def controlfunc(func, thread_n, api_key, api_params):
     func
         for now, it is process_run
         @TODO different function to process for example retrieve collections
-    thread_n
     api_key
     api_params : dict
 
@@ -325,17 +358,17 @@ def controlfunc(func, thread_n, api_key, api_params):
     page_num = 0
     rerun = True
     while rerun:
-        s_f = func(thread_n, api_key, api_params, page_num, data_lis=data_lis)
+        s_f = func(api_key, api_params, page_num, data_lis=data_lis)
         if s_f == "success":
             rerun = False
-            print("thread {} finished!!!!".format(thread_n))
+            logger.info('finished!!!!')
         else:
             status, api_params, page_num = s_f
             rerun_count += 1
-            print("Rerun {} resumes thread {}".format(rerun_count, thread_n))
+            logger.info(f'Rerun {rerun_count} resumes thread')
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
-            print(f"Thread {thread_n} abort: too many errors!!!")  # @TODO: save whatever have retrieved so far
+            logger.critical(f'abort: too many errors!!!')  # @TODO: save whatever have retrieved so far
 
 
 def chunks(lst, n):
@@ -350,21 +383,20 @@ if __name__ == '__main__':
     chunk_size : 要用多少筆數來切總列數(檔案)
     range_s : 執行首序列號
     range_e : 執行末序列號
-    EX. range(0,60) --> range_s=0 , range_e=60 , chunk_size = 30
 
     api_key1 = opensea api key1
     api_key2 = opensea api key2
     '''
     # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
     # @TODO: make the csv header the query parameter key
-    # fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    # address_inputs = pd.read_csv(fn)['account_address'].values
-    fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    address_inputs = pd.read_csv(fn)['collection_address'].values
+    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    address_inputs = pd.read_csv(fn)['account_address'].values
+    # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
+    # address_inputs = pd.read_csv(fn)['collection_address'].values
 
-    chunk_size = 7
+    chunk_size = 1
     range_s = 0
-    range_e = 21
+    range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
     address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
 
@@ -380,25 +412,25 @@ if __name__ == '__main__':
         api_key2 = secrets['api_key2']
 
     start = dt.datetime.now()
+    logger.info("Start")
     # spawn threads based on the number of chucks
     thread_sz = len(address_chunks)
     for n in range(thread_sz):
-
         # distribute keys among threads
         if (n % 2) == 0:
             key_ = api_key1
         else:
             key_ = api_key2
 
-        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful'}
-        filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, key_, filter_params))
+                   args=(process_run, key_, filter_params))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
         globals()["add_thread%s" % nn].join()
 
-    print("Start: {}".format(start))
-    print("End  : {}".format(dt.datetime.now()))
+    logger.info("End! Total time: {}".format(dt.datetime.now() - start))
