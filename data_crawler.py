@@ -14,7 +14,6 @@ import s3fs
 import logging
 from threading import Thread
 
-
 # create logger with 'spam_application'
 logger = logging.getLogger('data_crawler')
 logger.setLevel(logging.DEBUG)
@@ -31,7 +30,6 @@ ch.setFormatter(formatter)
 # add the handlers to the logger
 logger.addHandler(fh)
 logger.addHandler(ch)
-
 
 api_v1 = "https://api.opensea.io/api/v1"
 test_v1 = "https://testnets-api.opensea.io/api/v1/"
@@ -153,7 +151,7 @@ def parse_events(events):
             data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
             data["next_param"] = events["next"]
 
-            events_list.append(data)  
+            events_list.append(data)
     else:
         # @TODO: except KeyError
         data = {"msg": "Fail-no asset_events",
@@ -206,8 +204,7 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             addresses = value
 
     data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
-    for m in range(len(addresses)):
-        _address = addresses[m]
+    for m, _address in enumerate(addresses):
         api_params.update({address_filter: _address})
 
         try:
@@ -226,9 +223,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                     event[address_filter + '_input'] = _address
                     event['pages'] = page_num
                     data_lis.append(event)
-
                 logger.debug('thread: {}, {}: {}, page: {}, event_timestamp: {}'
-                            .format(thread_n, address_filter, _address, page_num, event['event_timestamp']))
+                             .format(thread_n, address_filter, _address, page_num, event['event_timestamp']))
 
                 next_param = events['next']
                 if next_param is not None:
@@ -291,17 +287,23 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
             status = ("fail/rerun", api_params, page_num)
         else:
-            # 存檔，自己取名
-            # output a file for every 50 account addresses processes or one file if less than 50 addresses total
-            # m+1 because m starts at 0
-            if (m+1) % 50 == 0 or (m+1) == len(addresses):
-                fn = "{}_{}_{}.xlsx".format(address_filter, thread_n, m)
-                pd.DataFrame(data_lis) \
-                    .reset_index(drop=True) \
-                    .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
-                data_lis = []
+            # @TODO: this method won't scale
+            data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m, thread_n)
 
     return status
+
+
+def to_excel(address_filter, addresses, data_dir, data_lis, m, thread_n):
+    # 存檔，自己取名
+    # output a file for every 50 account addresses processes or one file if less than 50 addresses total
+    # m+1 because m starts at 0
+    if (m + 1) % 50 == 0 or (m + 1) == len(addresses):
+        fn = "{}_{}_{}.xlsx".format(address_filter, thread_n, m)
+        pd.DataFrame(data_lis) \
+            .reset_index(drop=True) \
+            .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
+        data_lis = []
+    return data_lis
 
 
 def save_response_json(events, output_dir, page_num):
@@ -389,14 +391,14 @@ if __name__ == '__main__':
     '''
     # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
     # @TODO: make the csv header the query parameter key
-    # fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    # address_inputs = pd.read_csv(fn)['account_address'].values
-    fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    address_inputs = pd.read_csv(fn)['collection_address'].values
+    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    address_inputs = pd.read_csv(fn)['account_address'].values
+    # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
+    # address_inputs = pd.read_csv(fn)['collection_address'].values
 
-    chunk_size = 7
+    chunk_size = 1
     range_s = 0
-    range_e = 21
+    range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
     address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
 
@@ -421,9 +423,9 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
-        filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
+        # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
                    args=(process_run, n, key_, filter_params))
