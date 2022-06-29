@@ -24,7 +24,7 @@ fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.ERROR)
 # create formatter and add it to the handlers
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(threadName)s: %(message)s')
 fh.setFormatter(formatter)
 ch.setFormatter(formatter)
 # add the handlers to the logger
@@ -163,16 +163,12 @@ def parse_events(events):
     return events_list
 
 
-def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
+def process_run(api_key, api_params, page_num=0, data_lis=None):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
-    @TODO: not sure if thread_n is really needed here
-
     Parameters
     ----------
-    thread_n : int
-        index to track the thread number
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
     api_params : dict
@@ -223,8 +219,8 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
                     event[address_filter + '_input'] = _address
                     event['pages'] = page_num
                     data_lis.append(event)
-                logger.debug('thread: {}, {}: {}, page: {}, event_timestamp: {}'
-                             .format(thread_n, address_filter, _address, page_num, event['event_timestamp']))
+                logger.debug('{}: {}, page: {}, event_timestamp: {}'
+                             .format(address_filter, _address, page_num, event['event_timestamp']))
 
                 next_param = events['next']
                 if next_param is not None:
@@ -260,7 +256,9 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
             status = ("fail/rerun", api_params, page_num)
         # except requests.exceptions.SSLError
-        # @TODO: requests.exceptions.SSLError: HTTPSConnectionPool(host='api.opensea.io', port=443): Max retries exceeded with url
+        # @TODO: requests.exceptions.SSLError:
+        #   HTTPSConnectionPool(host='api.opensea.io', port=443):
+        #   Max retries exceeded with url
         except requests.exceptions.RequestException as e:
             logger.error(repr(e))
             msg = str(e)
@@ -288,17 +286,18 @@ def process_run(thread_n, api_key, api_params, page_num=0, data_lis=None):
             status = ("fail/rerun", api_params, page_num)
         else:
             # @TODO: this method won't scale
-            data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m, thread_n)
+            # data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
+            logger.debug('not going to save to Excel')
 
     return status
 
 
-def to_excel(address_filter, addresses, data_dir, data_lis, m, thread_n):
+def to_excel(address_filter, addresses, data_dir, data_lis, m):
     # 存檔，自己取名
     # output a file for every 50 account addresses processes or one file if less than 50 addresses total
     # m+1 because m starts at 0
     if (m + 1) % 50 == 0 or (m + 1) == len(addresses):
-        fn = "{}_{}_{}.xlsx".format(address_filter, thread_n, m)
+        fn = "{}_{}.xlsx".format(address_filter, m)
         pd.DataFrame(data_lis) \
             .reset_index(drop=True) \
             .to_excel(os.path.join(data_dir, fn), encoding="utf_8_sig")
@@ -336,7 +335,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, thread_n, api_key, api_params):
+def controlfunc(func, api_key, api_params):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -345,7 +344,6 @@ def controlfunc(func, thread_n, api_key, api_params):
     func
         for now, it is process_run
         @TODO different function to process for example retrieve collections
-    thread_n
     api_key
     api_params : dict
 
@@ -360,17 +358,17 @@ def controlfunc(func, thread_n, api_key, api_params):
     page_num = 0
     rerun = True
     while rerun:
-        s_f = func(thread_n, api_key, api_params, page_num, data_lis=data_lis)
+        s_f = func(api_key, api_params, page_num, data_lis=data_lis)
         if s_f == "success":
             rerun = False
-            logger.info(f'thread {thread_n} finished!!!!')
+            logger.info('finished!!!!')
         else:
             status, api_params, page_num = s_f
             rerun_count += 1
-            logger.info('Rerun {} resumes thread {}'.format(rerun_count, thread_n))
+            logger.info(f'Rerun {rerun_count} resumes thread')
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
-            logger.critical(f'Thread {thread_n} abort: too many errors!!!')  # @TODO: save whatever have retrieved so far
+            logger.critical(f'abort: too many errors!!!')  # @TODO: save whatever have retrieved so far
 
 
 def chunks(lst, n):
@@ -428,7 +426,7 @@ if __name__ == '__main__':
         # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
         globals()["add_thread%s" % n] = \
             Thread(target=controlfunc,
-                   args=(process_run, n, key_, filter_params))
+                   args=(process_run, key_, filter_params))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
