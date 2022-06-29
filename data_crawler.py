@@ -286,13 +286,17 @@ def process_run(api_key, api_params, page_num=0, data_lis=None):
             status = ("fail/rerun", api_params, page_num)
         else:
             # @TODO: this method won't scale
-            # data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
+            #   data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
+            #   temporary patch: empty the list when it gets to certain size
+            if len(data_lis) > 1e4:
+                data_lis = []
             logger.debug('not going to save to Excel')
 
     return status
 
 
 def to_excel(address_filter, addresses, data_dir, data_lis, m):
+    # @TODO: this doesn't scale well; holding too much data in memory and the Excel gets too big and slow to read
     # 存檔，自己取名
     # output a file for every 50 account addresses processes or one file if less than 50 addresses total
     # m+1 because m starts at 0
@@ -425,9 +429,7 @@ if __name__ == '__main__':
         filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
-        globals()["add_thread%s" % n] = \
-            Thread(target=controlfunc,
-                   args=(process_run, key_, filter_params))
+        globals()["add_thread%s" % n] = Thread(target=controlfunc, args=(process_run, key_, filter_params))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
