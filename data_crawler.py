@@ -1,7 +1,7 @@
 """
-針對OpenSea API-Retrieve events 解析結構，每完成50筆會累計存成一個檔案，到最後一筆會再生成一個檔案。
-抓專案契約地址 -> events_api = "https://api.opensea.io/api/v1/events?asset_contract_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
-抓錢包地址 -> events_api = "https://api.opensea.io/api/v1/events?account_address="+ wallet_address + "&event_type=" + event_type + "&cursor=" + next_param
+OpenSea API-Retrieve events
+    Parse events, save the response to local disk or s3
+    Make use of API's cursor to retrieve previous or next page
 """
 import json
 import requests
@@ -163,7 +163,7 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, api_params, page_num=0, data_lis=None):
+def process_run(api_key, api_params, page_num=1, data_lis=None):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
 
@@ -213,23 +213,23 @@ def process_run(api_key, api_params, page_num=0, data_lis=None):
                 # save to aws
                 # output_dir = 's3://nftfomo/asset_events/' + _address
                 save_response_json(events, output_dir, page_num)
+                logger.debug(f'saved {address_filter}: {_address}, page: {page_num}')
 
-                e_list = parse_events(events)
-                for event in e_list:
-                    event[address_filter + '_input'] = _address
-                    event['pages'] = page_num
-                    data_lis.append(event)
-                logger.debug('{}: {}, page: {}, event_timestamp: {}'
-                             .format(address_filter, _address, page_num, event['event_timestamp']))
+                # e_list = parse_events(events)
+                # for event in e_list:
+                #     event[address_filter + '_input'] = _address
+                #     event['pages'] = page_num
+                #     data_lis.append(event)
 
                 next_param = events['next']
                 if next_param is not None:
                     api_params['cursor'] = next_param
                     page_num += 1
                 else:
+                    logger.debug(f'{_address} finished: {page_num} page(s)')
                     api_params.pop('cursor')
                     next_param = ''
-                    page_num = 0
+                    page_num = 1
                     next_page = False
 
                 # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
@@ -243,59 +243,74 @@ def process_run(api_key, api_params, page_num=0, data_lis=None):
             # @TODO: 520 Server Error
             # @TODO: 524 Server Error << Cloudflare Timeout?
             logger.error(repr(err))
-            msg = f'Response [{err.response.status_code}]: {err.response.reason}'
-            data = {address_filter + '_input': _address,
-                    'pages': page_num,
-                    'msg': msg,
-                    'next_param': next_param}
-            data_lis.append(data)
+            # msg = f'Response [{err.response.status_code}]: {err.response.reason}'
+            # data = {address_filter + '_input': _address,
+            #         'pages': page_num,
+            #         'msg': msg,
+            #         'next_param': next_param}
+            # data_lis.append(data)
             if err.response.status_code == 429:
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/rerun", api_params, page_num)
+            status = ("fail/retry", api_params, page_num)
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
         #   HTTPSConnectionPool(host='api.opensea.io', port=443):
         #   Max retries exceeded with url
         except requests.exceptions.RequestException as e:
             logger.error(repr(e))
-            msg = str(e)
-            data = {address_filter + "_input": _address,
-                    "pages": page_num,
-                    "msg": msg,
-                    "next_param": next_param}
-            data_lis.append(data)
+            # msg = str(e)
+            # data = {address_filter + "_input": _address,
+            #         "pages": page_num,
+            #         "msg": msg,
+            #         "next_param": next_param}
+            # data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/rerun", api_params, page_num)
+            status = ("fail/retry", api_params, page_num)
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
-            msg = "SOMETHING WRONG"
-            data = {address_filter + "_input": _address,
-                    "pages": page_num,
-                    "msg": msg,
-                    "next_param": next_param}
-            data_lis.append(data)
+            # msg = "SOMETHING WRONG"
+            # data = {address_filter + "_input": _address,
+            #         "pages": page_num,
+            #         "msg": msg,
+            #         "next_param": next_param}
+            # data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/rerun", api_params, page_num)
+            status = ("fail/retry", api_params, page_num)
         else:
             # @TODO: this method won't scale
             #   data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
             #   temporary patch: empty the list when it gets to certain size
             if len(data_lis) > 1e4:
                 data_lis = []
-            logger.debug('not going to save to Excel')
+            logger.debug(f'{_address} finished')
 
     return status
 
 
 def to_excel(address_filter, addresses, data_dir, data_lis, m):
+    """
+
+    Parameters
+    ----------
+    address_filter
+    addresses
+    data_dir
+    data_lis
+        a list holding Event's parsed elements
+    m
+
+    Returns
+    -------
+
+    """
     # @TODO: this doesn't scale well; holding too much data in memory and the Excel gets too big and slow to read
     # 存檔，自己取名
     # output a file for every 50 account addresses processes or one file if less than 50 addresses total
@@ -359,7 +374,7 @@ def controlfunc(func, api_key, api_params):
     data_lis = []  # a temporary list to hold the processed values
 
     rerun_count = 0
-    page_num = 0
+    page_num = 1
     rerun = True
     while rerun:
         s_f = func(api_key, api_params, page_num, data_lis=data_lis)
@@ -426,7 +441,8 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
+        filter_params = {'account_address': address_chunks[n], 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
         # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
         globals()["add_thread%s" % n] = Thread(target=controlfunc, args=(process_run, key_, filter_params))
