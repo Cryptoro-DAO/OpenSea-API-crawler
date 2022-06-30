@@ -35,6 +35,19 @@ api_v1 = "https://api.opensea.io/api/v1"
 test_v1 = "https://testnets-api.opensea.io/api/v1/"
 
 
+class process_run_err(Exception):
+    """
+    Exception raised for errors in process_run
+    @TODO
+
+    """
+
+    def __init__(self, a, message="..."):
+        self.a = a
+        self.message = message
+        super().__init__(self.message)
+
+
 def retrieve_events(api_key=None, **query_params):
     """
     OpenSea Retrieve Events wrapper
@@ -149,7 +162,7 @@ def parse_events(events):
             data["contract_address"] = event["contract_address"]
 
             data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
-            data["next_param"] = events["next"]
+            data["next_param"] = events["next"] # @TODO: remove this; probably not needed as part of the dataframe
 
             events_list.append(data)
     else:
@@ -163,9 +176,10 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, api_params, page_num=1, data_lis=None):
+def process_run(api_key, api_params, page_num=1):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
+    @TODO: extend this method to page forward or backward via cursor param
 
     Parameters
     ----------
@@ -180,16 +194,12 @@ def process_run(api_key, api_params, page_num=1, data_lis=None):
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
     page_num : int
         index to track the number of event pages, see cursor
-    data_lis : list
-        a list to hold dictionaries of parsed asset event elements
 
     Returns
     -------
     status code
         "success" or "fail/rerun"
     """
-    if data_lis is None:
-        data_lis = []
     status = "success"
     next_param = ""
 
@@ -215,18 +225,12 @@ def process_run(api_key, api_params, page_num=1, data_lis=None):
                 save_response_json(events, output_dir, page_num)
                 logger.debug(f'saved {address_filter}: {_address}, page: {page_num}')
 
-                # e_list = parse_events(events)
-                # for event in e_list:
-                #     event[address_filter + '_input'] = _address
-                #     event['pages'] = page_num
-                #     data_lis.append(event)
-
                 next_param = events['next']
                 if next_param is not None:
                     api_params['cursor'] = next_param
                     page_num += 1
                 else:
-                    logger.debug(f'{_address} finished: {page_num} page(s)')
+                    logger.info(f'{_address} finished: {page_num} page(s)')
                     api_params.pop('cursor')
                     next_param = ''
                     page_num = 1
@@ -243,54 +247,30 @@ def process_run(api_key, api_params, page_num=1, data_lis=None):
             # @TODO: 520 Server Error
             # @TODO: 524 Server Error << Cloudflare Timeout?
             logger.error(repr(err))
-            # msg = f'Response [{err.response.status_code}]: {err.response.reason}'
-            # data = {address_filter + '_input': _address,
-            #         'pages': page_num,
-            #         'msg': msg,
-            #         'next_param': next_param}
-            # data_lis.append(data)
+
             if err.response.status_code == 429:
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/retry", api_params, page_num)
+            status = (addresses[m], api_params, page_num)
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
         #   HTTPSConnectionPool(host='api.opensea.io', port=443):
         #   Max retries exceeded with url
         except requests.exceptions.RequestException as e:
             logger.error(repr(e))
-            # msg = str(e)
-            # data = {address_filter + "_input": _address,
-            #         "pages": page_num,
-            #         "msg": msg,
-            #         "next_param": next_param}
-            # data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/retry", api_params, page_num)
+            status = (addresses[m], api_params, page_num)
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
-            # msg = "SOMETHING WRONG"
-            # data = {address_filter + "_input": _address,
-            #         "pages": page_num,
-            #         "msg": msg,
-            #         "next_param": next_param}
-            # data_lis.append(data)
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = ("fail/retry", api_params, page_num)
-        else:
-            # @TODO: this method won't scale
-            #   data_lis = to_excel(address_filter, addresses, data_dir, data_lis, m)
-            #   temporary patch: empty the list when it gets to certain size
-            if len(data_lis) > 1e4:
-                data_lis = []
-                logger.debug(f'{_address} cleaning up data_lst')
+            status = (addresses[m], api_params, page_num)
 
     return status
 
@@ -414,24 +394,21 @@ def controlfunc(func, api_key, api_params):
     -------
 
     """
-
-    data_lis = []  # a temporary list to hold the processed values
-
     rerun_count = 0
     page_num = 1
     rerun = True
     while rerun:
-        s_f = func(api_key, api_params, page_num, data_lis=data_lis)
+        s_f = func(api_key, api_params, page_num)
         if s_f == "success":
             rerun = False
             logger.info('finished!!!!')
         else:
             status, api_params, page_num = s_f
             rerun_count += 1
-            logger.info(f'Rerun {rerun_count} resumes thread')
+            logger.info(f"Rerun {rerun_count} retry {status}")
         if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
             rerun = False
-            logger.critical(f'abort: too many errors!!!')  # @TODO: save whatever have retrieved so far
+            logger.critical('Abort!!! Too many errors!!!')  # @TODO: save whatever have retrieved so far
 
 
 def chunks(lst, n):
