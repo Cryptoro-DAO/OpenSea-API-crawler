@@ -290,9 +290,53 @@ def process_run(api_key, api_params, page_num=1, data_lis=None):
             #   temporary patch: empty the list when it gets to certain size
             if len(data_lis) > 1e4:
                 data_lis = []
-            logger.debug(f'{_address} finished')
+                logger.debug(f'{_address} cleaning up data_lst')
 
     return status
+
+
+def events_json_to_dataframe(json_path):
+    """
+    Parse OpenSea Event objects into a pandas DataFrame
+
+    Parameters
+    ----------
+    json_path
+        absolute path
+
+    Returns
+    -------
+
+    """
+    lst = []
+    if not isinstance(json_path, list):
+        json_path = [json_path]
+    for p in json_path:
+        with open(p) as f:
+            data = json.load(f)
+        lst.extend(parse_events(data))
+
+    return pd.DataFrame(lst)
+
+
+def df_to_parquet(df: pd.DataFrame, out_path):
+    """
+    minimal imputing missing values and conversion of dtype prior to saving to parquet
+
+    Parameters
+    ----------
+    df
+    out_path
+
+    Returns
+    -------
+
+    """
+    datetime_col = ['event_timestamp', 'listing_time', 'created_date']
+    df.loc[:, datetime_col] = df.loc[:, datetime_col].apply(pd.to_datetime)
+    num_col = ['num_sales', 'quantity', 'deal_price', 'starting_price', 'ending_price']
+    df.loc[:, num_col] = df.loc[:, num_col].fillna(0).apply(pd.to_numeric, errors='coerce', downcast='integer')
+    df.to_parquet(out_path)
 
 
 def to_excel(address_filter, addresses, data_dir, data_lis, m):
