@@ -389,10 +389,7 @@ def controlfunc(func, api_key, api_params):
         @TODO different function to process for example retrieve collections
     api_key
     api_params : dict
-
-    Returns
-    -------
-
+        see example
     """
     rerun_count = 0
     page_num = 1
@@ -418,19 +415,23 @@ def chunks(lst, n):
 
 
 if __name__ == '__main__':
-    '''
-    以下變數需手動設置，此程式預設調用兩個API，分別分配給兩個執行序來平行抓取處理。
-    chunk_size : 要用多少筆數來切總列數(檔案)
-    range_s : 執行首序列號
-    range_e : 執行末序列號
+    """
+    Example to retrieve asset events from a list of user account's wallet
+    addresses (filter on `account_address`)
 
-    api_key1 = opensea api key1
-    api_key2 = opensea api key2
-    '''
-    # 讀取檔案裡的錢包/專案契約地址，檔案裡是放錢包地址。
+    Specify `chunk_size` to divide the list into n-size chunks. Each chunk
+    spawns up a thread
+    
+    range_s : start index of the list of address
+    range_e : end index of the list of addresses
+
+    api_key1, api_key2 : If a key not provided, the module calls testnets-api
+    """
+    # Read a list of wallet addresses from file
     # @TODO: make the csv header the query parameter key
     fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
     address_inputs = pd.read_csv(fn)['account_address'].values
+    # Read a list of collection contract addresses from file
     # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
     # address_inputs = pd.read_csv(fn)['collection_address'].values
 
