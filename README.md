@@ -4,15 +4,15 @@ Source `Asset Events` and engineer features to analyze NFT trading behavior,
 e.g. FOMO.
 See also the companion project [OpenSea_EDA](https://github.com/Cryptoro-DAO/OpenSea_EDA).
 
-WIP
-
-- data_crawler module, a python script that retrieves assets events from
-OpenSea by `account_address`. The extracted data can be saved locally or to AWS
-s3 via `boto3 / s3fs` package
-- Procedure to load multiple Excel files into pandas DataFrame and save in
-feather format for fast subsequent loading
+- data_crawler python module uses OpenSea API to retrieves asset event, collections,
+and asset information. It implements multi-threads, logging, and controller
+pattern and make use of API's cursor to retrieve sequential blocks of data
+from OpenSea.
+- The extracted data can be saved locally or to AWS s3 via `boto3 / s3fs` package
 - Procedure to engineering feature for building prediction and classification
 models
+- deprecated: procedure to load multiple Excel files into pandas DataFrame and save in
+feather format for fast subsequent loading
 
 # Wallet Features
 
