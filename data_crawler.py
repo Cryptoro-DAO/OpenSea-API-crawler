@@ -364,18 +364,16 @@ def save_response_json(events, output_dir, page_num):
 
     """
     if output_dir.startswith('s3://'):
-        output_dir.removeprefix('s3://')
         s3 = s3fs.S3FileSystem(anon=False)
-        rpath = output_dir + '/' + str(page_num) + '.json'
-        with s3.open(rpath, 'w') as f:
-            json.dump(events, fp=f)
+        rpath = output_dir[5:] + '/' + str(page_num) + '.json'
+        with s3.open(rpath, 'w') as fwrite:
+            json.dump(events, fp=fwrite)
     else:
         # create a subdirectory to save response json object
         if not os.path.isdir(os.path.join(output_dir)):
             os.makedirs(output_dir)
-
-        with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as f:
-            json.dump(events, fp=f)
+        with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as fwrite:
+            json.dump(events, fp=fwrite)
 
 
 def controlfunc(func, api_key, api_params, retry_max=10):
