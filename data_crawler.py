@@ -198,7 +198,7 @@ def process_run(api_key, api_params, page_num=1):
     Returns
     -------
     status code
-        "success" or "fail/rerun"
+        "success", or if failed a tuple (message, current API parameters, current page count)
     """
     status = "success"
     next_param = ""
@@ -378,7 +378,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=f)
 
 
-def controlfunc(func, api_key, api_params):
+def controlfunc(func, api_key, api_params, retry_max=10):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -390,22 +390,26 @@ def controlfunc(func, api_key, api_params):
     api_key
     api_params : dict
         see example
+    retry_max : int
+        maximum number of retries when encounters exception
     """
-    rerun_count = 0
+    retry_count = 0
     page_num = 1
-    rerun = True
-    while rerun:
+    run = True
+    while run:
         s_f = func(api_key, api_params, page_num)
         if s_f == "success":
-            rerun = False
+            if retry_count > 0:
+                retry_count -= 1
+            run = False
             logger.info('finished!!!!')
         else:
-            status, api_params, page_num = s_f
-            rerun_count += 1
-            logger.info(f"Rerun {rerun_count} retry {status}")
-        if rerun_count > 50:  # @TODO: parameterize this instead of hard coding
-            rerun = False
-            logger.critical('Abort!!! Too many errors!!!')  # @TODO: save whatever have retrieved so far
+            msg, api_params, page_num = s_f
+            retry_count += 1
+            logger.info(f"Retry {retry_count}: {msg}")
+        if retry_count > retry_max:
+            run = False
+            logger.critical('Abort!!! Too many errors!!!')
 
 
 def chunks(lst, n):
