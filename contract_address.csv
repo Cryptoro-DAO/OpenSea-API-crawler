@@ -1,4 +1,4 @@
-event_contract_address,token_tracker,contract_creator
+﻿event_contract_address,token_tracker,contract_creator
 0x7f268357a8c2552623316e2562d90e642bb538e5,Wyvern Exchange Contract,
 0x7be8076f4ea4a4ad08075c2508e481d6c946d12b,Project Wyvern Exchange,
 0xcd4ec7b66fbc029c116ba9ffb3e59351c20b5b06,Rarible,
@@ -43,4 +43,4 @@ event_contract_address,token_tracker,contract_creator
 0x6c424c25e9f1fff9642cb5b7750b0db7312c29ad,Async Art (ASYNC),
 0x17a03553719001e05dc19a20f5e82ee76923a985,,
 0xb5aa1fb7027290d6d5cbbe3b1aecd5317fa582ec,Project Wyvern Exchange,
-0xd01c92937400dd1ece24992b1dc44aeaa47ae72a,Old Contract,0x4adD46C2268402F2Cd30b2E837aB7A3cdc70677B�
+0xd01c92937400dd1ece24992b1dc44aeaa47ae72a,Old Contract,0x4adD46C2268402F2Cd30b2E837aB7A3cdc70677B 
