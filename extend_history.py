@@ -12,10 +12,6 @@ addr_dir = (os.path.join(data_dir, each_subdir) for each_subdir in os.listdir(da
 addr_dir = (e for e in addr_dir if os.path.isdir(e))
 
 
-def retrieve_cursors(events):
-    return events['previous'], events['next']
-
-    
 if __name__ == '__main__':
     # get only .json from each directory, sort the file numerically, and
     # combine them into one single-line .json
@@ -37,6 +33,7 @@ if __name__ == '__main__':
         for each_fn in fn:
             with open(each_fn, 'r') as fr:
                 events = json.load(fr)
-                prv, nxt = retrieve_cursors(events)
-                lst.append({'previous': prv, 'next': nxt, 'fn': os.path.basename(each_fn), 'addr': os.path.basename(each_dir)})
+                prv, nxt = events['previous'], events['next']
+                lst.append({'previous': prv, 'next': nxt,
+                            'fn': os.path.basename(each_fn), 'addr': os.path.basename(each_dir)})
 
