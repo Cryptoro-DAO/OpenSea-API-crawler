@@ -162,7 +162,7 @@ def parse_events(events):
             data["contract_address"] = event["contract_address"]
 
             data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
-            data["next_param"] = events["next"] # @TODO: remove this; probably not needed as part of the dataframe
+            data["next_param"] = events["next"]  # @TODO: remove this; probably not needed as part of the dataframe
 
             events_list.append(data)
     else:
@@ -176,13 +176,14 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, api_params, page_num=1):
+def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, output_dir=None):
     """
     Retrieve asset events via OpenSea API based on a list of account addresses
     @TODO: extend this method to page forward or backward via cursor param
 
     Parameters
     ----------
+    output_dir : str
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
     api_params : dict
@@ -194,14 +195,20 @@ def process_run(api_key, api_params, page_num=1):
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
     page_num : int
         index to track the number of event pages, see cursor
+    n_request : int
+        number requests to make
+    ascending : bool
+
 
     Returns
     -------
     status code
         "success", or if failed a tuple (message, current API parameters, current page count)
     """
+    if output_dir is None:
+        output_dir = os.path.join(os.getcwd(), 'data')
     status = "success"
-    next_param = ""
+    _cursor = ""
 
     # check type of addresses {'account_address', 'asset_contract_address'}
     for param, value in api_params.items():
@@ -209,39 +216,41 @@ def process_run(api_key, api_params, page_num=1):
             address_filter = param
             addresses = value
 
-    data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
     for m, _address in enumerate(addresses):
         api_params.update({address_filter: _address})
 
         try:
-            next_page = True
+            next_page = n_request
             while next_page:
                 events = retrieve_events(api_key, **api_params).json()
 
                 # save each response JSON as a separate file
-                output_dir = os.path.join(data_dir, _address)
-                # save to aws
-                # output_dir = 's3://nftfomo/asset_events/' + _address
-                save_response_json(events, output_dir, page_num)
+                if output_dir.startswith('s3://'):
+                    # save to aws
+                    # _dir = 's3://nftfomo/asset_events/' + _address
+                    _dir = f'{output_dir}/{address_filter}/{_address}'
+                else:
+                    _dir = os.path.join(output_dir, address_filter, _address)
+                save_response_json(events, _dir, page_num)
                 logger.debug(f'saved {address_filter}: {_address}, page: {page_num}')
 
-                next_param = events['next']
-                if next_param is not None:
-                    api_params['cursor'] = next_param
-                    page_num += 1
+                if ascending:
+                    _cursor = events['previous']
+                else:
+                    _cursor = events['next']
+                if _cursor is not None:
+                    api_params['cursor'] = _cursor
+                    next_page -= 1
+                    if ascending:
+                        page_num -= 1
+                    else:
+                        page_num += 1
                 else:
                     logger.info(f'{_address} finished: {page_num} page(s)')
                     api_params.pop('cursor')
-                    next_param = ''
-                    page_num = 1
+                    _cursor = ''
                     next_page = False
 
-                # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
-                # if page_num == 2:
-                #     api_params.pop('cursor')
-                #     next_param = ''
-                #     page_num = 0
-                #     next_page = False
         except requests.exceptions.HTTPError as err:
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
             # @TODO: 520 Server Error
@@ -252,7 +261,7 @@ def process_run(api_key, api_params, page_num=1):
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
+            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
             status = (addresses[m], api_params, page_num)
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
@@ -262,15 +271,15 @@ def process_run(api_key, api_params, page_num=1):
             logger.error(repr(e))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = (addresses[m], api_params, page_num)
+            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
+            status = (addresses[m], api_params, page_num, next_page)
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = (addresses[m], api_params, page_num)
+            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
+            status = (addresses[m], api_params, page_num, next_page)
 
     return status
 
@@ -376,7 +385,11 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=fwrite)
 
 
-def controlfunc(func, api_key, api_params, retry_max=10):
+def controlfunc(func, api_key, api_params, retry_max=10,
+                page_num=1,
+                n_request=1,
+                ascending=False,
+                output_dir=None):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -390,19 +403,22 @@ def controlfunc(func, api_key, api_params, retry_max=10):
         see example
     retry_max : int
         maximum number of retries when encounters exception
+    n_request : int, default 1
+    page_num : int, default 1
+    ascending : bool, default False
+    output_dir
     """
     retry_count = 0
-    page_num = 1
     run = True
     while run:
-        s_f = func(api_key, api_params, page_num)
+        s_f = func(api_key, api_params, page_num, n_request, ascending, output_dir)
         if s_f == "success":
             if retry_count > 0:
                 retry_count -= 1
             run = False
             logger.info('finished!!!!')
         else:
-            msg, api_params, page_num = s_f
+            msg, api_params, page_num, n_request = s_f
             retry_count += 1
             logger.info(f"Retry {retry_count}: {msg}")
         if retry_count > retry_max:
