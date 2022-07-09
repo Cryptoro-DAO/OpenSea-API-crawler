@@ -183,7 +183,7 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
 
     Parameters
     ----------
-    output_dir : str
+    output_dir : str, default os.path.join(os.getcwd(), 'data')
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
     api_params : dict
@@ -193,20 +193,23 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
             account_address : list
             asset_contract_address : list
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
-    page_num : int
+    page_num : int, default 1
         index to track the number of event pages, see cursor
-    n_request : int
-        number requests to make
-    ascending : bool
-
+    n_request : int, default None
+        number requests to make or run till out of data if None
+    ascending : bool, default False
 
     Returns
     -------
     status code
-        "success", or if failed a tuple (message, current API parameters, current page count)
+        "success", or if failed a tuple (message, current API parameters, current page count, number of requests)
     """
     if output_dir is None:
         output_dir = os.path.join(os.getcwd(), 'data')
+    if n_request is None or np.isnan(n_request):
+        n_request = True
+    if page_num is None or np.isnan(page_num):
+        page_num = 1
     status = "success"
     _cursor = ""
 
@@ -240,11 +243,9 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
                     _cursor = events['next']
                 if _cursor is not None:
                     api_params['cursor'] = _cursor
-                    next_page -= 1
-                    if ascending:
-                        page_num -= 1
-                    else:
-                        page_num += 1
+                    page_num += 1
+                    if not isinstance(n_request, bool):
+                        next_page -= 1
                 else:
                     logger.info(f'{_address} finished: {page_num} page(s)')
                     api_params.pop('cursor')
