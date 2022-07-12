@@ -98,11 +98,6 @@ df.select(explode(df.asset_events).alias('asset_event')) \
 
 # COMMAND ----------
 
-# MAGIC %ls
-# MAGIC mv 
-
-# COMMAND ----------
-
 df = spark.read.format('delta').load('/tmp/delta/asset_events_proof-moonbirds')
 df.createOrReplaceTempView('tempView')
 
