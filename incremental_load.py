@@ -34,11 +34,7 @@
 
 # COMMAND ----------
 
-# MAGIC %fs ls dbfs:/tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b
-
-# COMMAND ----------
-
-# MAGIC %fs ls file:/tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b
+# MAGIC %ls -Ghv /dbfs/tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b
 
 # COMMAND ----------
 
@@ -46,6 +42,19 @@ from pyspark.sql.functions import explode
 
 base_location = '/tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b/'
 df = spark.read.json(base_location)
+
+# COMMAND ----------
+
+df.count()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Preserve schema, as we would encounter `asset_bundle:string` < this needs to be `struct`
+
+# COMMAND ----------
+
+schema = df.schema
 
 # COMMAND ----------
 
@@ -66,6 +75,12 @@ df.describe()
 
 df.select(explode(df.asset_events).alias('asset_event')) \
     .select('asset_event.*') \
+    .count()
+
+# COMMAND ----------
+
+df.select(explode(df.asset_events).alias('asset_event')) \
+    .select('asset_event.*') \
     .printSchema()
 
 # COMMAND ----------
@@ -76,6 +91,15 @@ df.select(explode(df.asset_events).alias('asset_event')) \
     .format('delta') \
     .partitionBy('event_type', 'collection_slug') \
     .save('/tmp/delta/asset_events_proof-moonbirds')
+
+# COMMAND ----------
+
+# MAGIC %fs ls /tmp/delta
+
+# COMMAND ----------
+
+# MAGIC %ls
+# MAGIC mv 
 
 # COMMAND ----------
 
@@ -94,7 +118,16 @@ df.createOrReplaceTempView('tempView')
 
 # COMMAND ----------
 
-# MAGIC %fs ls /tmp/delta
+# MAGIC %md
+# MAGIC archive imported source data
+
+# COMMAND ----------
+
+# MAGIC %fs mv /mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b.zip /mnt/opensea-sg/imported/asset_events/asset_contract_address/
+
+# COMMAND ----------
+
+# MAGIC %fs mv /mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b_20220709T0725cst.zip /mnt/opensea-sg/imported/asset_events/asset_contract_address/
 
 # COMMAND ----------
 
@@ -108,7 +141,7 @@ df.createOrReplaceTempView('tempView')
 # COMMAND ----------
 
 # MAGIC %sh
-# MAGIC unzip -u /dbfs/mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b_20220709T113549cst -d /dbfs/tmp/_asset_contract_address
+# MAGIC unzip -u /dbfs/mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b_20220709T113549cst -d /tmp/_asset_contract_address
 
 # COMMAND ----------
 
@@ -119,15 +152,14 @@ df.createOrReplaceTempView('tempView')
 import os
 from pyspark.sql.functions import explode
 
-base_location = '/tmp/_asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b/'
-df2 = spark.read.json(base_location)
+# .option('recursiveFileLookup', 'true')
+# asset_bundle:string < this needs to but struct
+# workaround: explicitly set schema using target's schema
+
+base_location = '/tmp/_asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b'
+df2 = spark.read.format('json').schema(schema).load(base_location)
 df2 = df2.select(explode(df2.asset_events).alias('asset_event')) \
-    .select('asset_event.*')
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## asset_bundle:string < this needs to but struct
+     .select('asset_event.*')
 
 # COMMAND ----------
 
@@ -136,21 +168,12 @@ df2.createOrReplaceTempView(temp_view)
 
 # COMMAND ----------
 
+df2['asset_bundle']
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC select count(*) from asset_events_update
-
-# COMMAND ----------
-
-deltaTableEventsUpdates = DeltaTable.forPath(spark, '/tmp/delta/asset_events_proof-moonbirds')
-type(deltaTableEventsUpdates.toDF())
-
-# COMMAND ----------
-
-spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
-
-# COMMAND ----------
-
-spark.conf.get('spark.databricks.delta.resolveMergeUpdateStructsByName.enabled')
 
 # COMMAND ----------
 
@@ -160,9 +183,9 @@ from delta.tables import *
 # spark.conf.get('spark.databricks.delta.resolveMergeUpdateStructsByName.enabled', 'true')
 
 deltaTableEvents = DeltaTable.forPath(spark, '/tmp/delta/asset_events_proof-moonbirds')
-deltaTableEventsUpdate = DeltaTable.forPath(spark, '/tmp/delta/_asset_events_proof-moonbirds')
+# deltaTableEventsUpdate = DeltaTable.forPath(spark, '/tmp/delta/_asset_events_proof-moonbirds')
 
-dfUpdates = deltaTableEventsUpdate.toDF()
+dfUpdates = df2
 
 deltaTableEvents.alias('events') \
   .merge(
@@ -179,48 +202,36 @@ dfUpdates.select("asset_bundle").printSchema()
 
 # COMMAND ----------
 
-type(dfUpdates["asset_bundle"])
+deltaTableEvents.toDF().write.mode('overwrite') \
+    .format('delta') \
+    .partitionBy('event_type', 'collection_slug') \
+    .save('/tmp/delta/asset_events_proof-moonbirds_updated')
 
 # COMMAND ----------
 
-deltaTableEvents.toDF().select('asset_bundle').printSchema()
+# MAGIC %ls -gGh /dbfs/mnt/opensea/asset_events/asset_contract_address
 
 # COMMAND ----------
 
-df2 = dfUpdates.select(col("asset_bundle").cast(transform_schema(df.schema)['hid_tagged'].dataType))
+# MAGIC %ls -gGh /dbfs/mnt/opensea-sg/imported/asset_events/asset_contract_address
 
 # COMMAND ----------
 
-# MAGIC %fs ls /mnt/opensea/asset_events
+# MAGIC %fs mv /mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b_20220709T113549cst.zip /mnt/opensea-sg/imported/asset_events/asset_contract_address/
 
 # COMMAND ----------
 
-# MAGIC %fs mkdirs /mnt/opensea-sg/imported/asset_events/asset_contract_address
+# MAGIC %sh du -s /dbfs/tmp/delta/
 
 # COMMAND ----------
 
-# MAGIC %fs ls /mnt/opensea-sg/imported/asset_events/asset_contract_address
+# MAGIC %ls -gRGh /dbfs/mnt/opensea-sg/imported/asset_events
 
 # COMMAND ----------
 
-# MAGIC %fs ls /mnt/opensea/asset_events/asset_contract_address
+df = spark.read.format('delta').load('/tmp/delta/asset_events_proof-moonbirds')
+df2 = spark.read.format('delta').load('/tmp/delta/asset_events_proof-moonbirds_updated')
 
 # COMMAND ----------
 
-# MAGIC %fs mv /mnt/opensea/asset_events/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b_20220709T0725cst.zip /mnt/opensea-sg/imported/asset_events/asset_contract_address/
-
-# COMMAND ----------
-
-# MAGIC %fs mv /mnt/opensea/asset_events/asset_contract_address.zip /mnt/opensea-sg/imported/asset_events/
-
-# COMMAND ----------
-
-# MAGIC %ls /tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b
-
-# COMMAND ----------
-
-# MAGIC %ls -ls /tmp/asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b
-
-# COMMAND ----------
-
-
+df.count(), df2.count()
