@@ -230,8 +230,45 @@ deltaTableEvents.toDF().write.mode('overwrite') \
 # COMMAND ----------
 
 df = spark.read.format('delta').load('/tmp/delta/asset_events_proof-moonbirds')
-df2 = spark.read.format('delta').load('/tmp/delta/asset_events_proof-moonbirds_updated')
 
 # COMMAND ----------
 
-df.count(), df2.count()
+# MAGIC %sql
+# MAGIC DESCRIBE HISTORY opensea_events
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC 
+# MAGIC select distinct collection_slug from opensea_events
+
+# COMMAND ----------
+
+from delta.tables import *
+
+# spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+# spark.conf.get('spark.databricks.delta.resolveMergeUpdateStructsByName.enabled', 'true')
+
+deltaTableEvents = DeltaTable.forName(spark, 'opensea_events')
+# deltaTableEventsUpdate = DeltaTable.forPath(spark, '/tmp/delta/_asset_events_proof-moonbirds')
+
+dfUpdates = df
+
+deltaTableEvents.alias('events') \
+  .merge(
+    dfUpdates.alias('updates'),
+    'events.id = updates.id'
+  ) \
+  .whenNotMatchedInsertAll() \
+  .execute()
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC DESCRIBE HISTORY opensea_events
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC 
+# MAGIC select collection_slug, count(event_type) from opensea_events group by collection_slug
