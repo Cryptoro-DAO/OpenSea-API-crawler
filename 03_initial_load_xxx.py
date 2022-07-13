@@ -28,7 +28,7 @@
 
 # COMMAND ----------
 
-# MAGIC %fs mv -r /tmp/asset_contract_address /dbfs/mnt/opensea-sg/tmp/asset_contract_address
+# MAGIC %fs mv -r file:/tmp/asset_contract_address /dbfs/mnt/opensea-sg/tmp/asset_contract_address
 
 # COMMAND ----------
 
@@ -36,13 +36,78 @@
 
 # COMMAND ----------
 
-# MAGIC %sh
-# MAGIC unzip -uq /dbfs/mnt/opensea/asset_events/asset_contract_address/0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B.zip 0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B/1.json -d /tmp/foo
-# MAGIC ls /tmp/foo/0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B
+# MAGIC %fs ls /dbfs/mnt/opensea-sg/tmp/asset_contract_address
 
 # COMMAND ----------
 
 # MAGIC %sh unzip -l /dbfs/mnt/opensea/asset_events/asset_contract_address/0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B.zip | tail
+
+# COMMAND ----------
+
+schema = spark.table(tableName='opensea_events').schema
+
+# COMMAND ----------
+
+base_location = '/mnt/opensea-sg/tmp/asset_contract_address/'
+# df = spark.read.option('recursiveFileLookup', 'true').json(path=base_location, schema=schema)
+df = spark.read.option('recursiveFileLookup', 'true').json(path=base_location)
+df.write.mode('overwrite') \
+    .format('parquet') \
+    .save('/tmp/parquet/asset_events')
+
+# COMMAND ----------
+
+df = spark.read.load(format='parquet', path='/tmp/parquet/asset_events')
+
+# COMMAND ----------
+
+df.count()
+
+# COMMAND ----------
+
+from pyspark.sql.functions import explode
+df.select(explode(df.asset_events).alias('asset_event')) \
+    .select('asset_event.*') \
+    .count()
+
+# COMMAND ----------
+
+df.select(explode(df.asset_events).alias('asset_event')) \
+    .select('asset_event.*') \
+    .write.mode('overwrite') \
+    .format('delta') \
+    .partitionBy('event_type', 'collection_slug') \
+    .save('/tmp/delta/asset_events')
+
+# COMMAND ----------
+
+from delta.tables import *
+
+# spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+# spark.conf.get('spark.databricks.delta.resolveMergeUpdateStructsByName.enabled', 'true')
+
+deltaTblEvents = DeltaTable.forName(spark, 'opensea_events')
+# deltaTableEventsUpdate = DeltaTable.forPath(spark, '/tmp/delta/_asset_events_proof-moonbirds')
+
+dfUpdates = df.select(explode(df.asset_events).alias('asset_event')) \
+    .select('asset_event.*')
+
+deltaTblEvents.alias('events') \
+  .merge(
+    dfUpdates.alias('updates'),
+    'events.id = updates.id'
+  ) \
+  .whenNotMatchedInsertAll() \
+  .execute()
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select collection_slug, count(event_type) from opensea_events group by collection_slug
+
+# COMMAND ----------
+
+display(deltaTblEvents.history())
 
 # COMMAND ----------
 
@@ -52,30 +117,7 @@
 
 # COMMAND ----------
 
-schema = spark.table(tableName='opensea_events').schema
 
-# COMMAND ----------
-
-base_location = '/mnt/opensea-sg/tmp/asset_contract_address/'
-df = spark.read.option('recursiveFileLookup', 'true').json(path=base_location, schema=schema)
-df.write.mode('overwrite') \
-    .format('parquet') \
-    .partitionBy('event_type', 'collection_slug') \
-    .save('/tmp/parquet/asset_events')
-
-# COMMAND ----------
-
-df = spark.read.load(format='parquet', path='/tmp/parquet/asset_events', schema=schema)
-
-# COMMAND ----------
-
-df.count()
-
-# COMMAND ----------
-
-df.select(explode(df.asset_events).alias('asset_event')) \
-    .select('asset_event.*') \
-    .count()
 
 # COMMAND ----------
 
