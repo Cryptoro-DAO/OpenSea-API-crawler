@@ -33,8 +33,8 @@ jobs = pd.read_csv(os.path.join(os.getcwd(), 'jobs.csv')).to_dict('records')
 
 chunk_size = 1
 range_s = 0
-range_e = 1
-# a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
+range_e = 6
+# a list of 4 elements range(0, 6) with chunk_size of 1 will create 6 threads
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
 output_dir = os.path.join(os.getcwd(), 'tmp')

@@ -56,9 +56,9 @@ def retrieve_events(api_key=None, **query_params):
     ----------
     api_key : str
         an OpenSea API Key. If not defined, call testnets-api.
-    query_params
+    query_params: dict
         param_key=string_value, e.g. only_opensea="True"
-
+        {'asset_contract_address', 'asset_account_address', 'event_type', 'cursor', 'limit'}
     Returns
     -------
     Response
@@ -68,11 +68,11 @@ def retrieve_events(api_key=None, **query_params):
     ------
     HTTPError
     """
-
     headers = {"X-API-KEY": api_key}
 
     # filter to only acceptable parameter keys
-    query_keys = {'asset_contract_address', 'cursor', 'limit'}
+    query_keys = {'asset_contract_address', 'asset_account_address',
+                  'event_type', 'cursor', 'limit'}
     query_params = {key: val for key, val in query_params.items() if key in query_keys}
 
     if api_key is None:
@@ -220,6 +220,9 @@ def process_run(api_key, job_params, output_dir=None):
         n_request = _param.get('n_request', True)
         page_num = round(_param.get('page_num', 1))
         ascending = _param.get('ascending', False)
+
+        # set base directory _dir for each job
+        # @TODO: refactor this to append both account_address and asset_contract_address
         # check type of addresses {'account_address', 'asset_contract_address'}
         # to use in output directory name
         for param, value in _param.items():
@@ -229,24 +232,22 @@ def process_run(api_key, job_params, output_dir=None):
                 # @TODO: fix this; once set, don't continue to iterate but I want to be able to set more than one value
                 break
             else:
-                address_filter = '_'
-                address = '_'
+                address_filter = ''
+                address = ''
+        if output_dir.startswith('s3://'):
+            # save to aws
+            # _dir = 's3://nftfomo/asset_events/' + address_filter + address
+            _dir = f'{output_dir}/{address_filter}/{address}'
+        else:
+            _dir = os.path.join(output_dir, address_filter, address)
 
         next_page = n_request
         try:
             while next_page:
 
-                query_params = dict(asset_contract_address=_param['asset_contract_address'],
-                                    limit=_param['limit'])
-                events = retrieve_events(api_key, **query_params).json()
+                events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate file
-                if output_dir.startswith('s3://'):
-                    # save to aws
-                    # _dir = 's3://nftfomo/asset_events/' + address_filter + address
-                    _dir = f'{output_dir}/{address_filter}/{address}'
-                else:
-                    _dir = os.path.join(output_dir, address_filter, address)
                 save_response_json(events, _dir, page_num)
                 logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
