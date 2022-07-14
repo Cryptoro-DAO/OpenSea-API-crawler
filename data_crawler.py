@@ -218,8 +218,16 @@ def process_run(api_key, job_params, output_dir=None):
 
     for m, _param in enumerate(job_params):
         n_request = _param.get('n_request', True)
-        page_num = round(_param.get('page_num', 1))
+        if n_request != n_request:
+            n_request = True
+        page_num = _param.get('page_num', 1)
+        if page_num != page_num:
+            page_num = 1
+        else:
+            page_num = round(page_num)
         ascending = _param.get('ascending', False)
+        if ascending != ascending:
+            ascending = True
 
         # set base directory _dir for each job
         # @TODO: refactor this to append both account_address and asset_contract_address

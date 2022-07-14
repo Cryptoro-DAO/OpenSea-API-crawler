@@ -32,8 +32,8 @@ with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
 jobs = pd.read_csv(os.path.join(os.getcwd(), 'jobs.csv')).to_dict('records')
 
 chunk_size = 1
-range_s = 0
-range_e = 6
+range_s = 19
+range_e = 21
 # a list of 4 elements range(0, 6) with chunk_size of 1 will create 6 threads
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
