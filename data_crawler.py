@@ -71,6 +71,10 @@ def retrieve_events(api_key=None, **query_params):
 
     headers = {"X-API-KEY": api_key}
 
+    # filter to only acceptable parameter keys
+    query_keys = {'asset_contract_address', 'cursor', 'limit'}
+    query_params = {key: val for key, val in query_params.items() if key in query_keys}
+
     if api_key is None:
         events_api = test_v1 + "/events"
     else:
@@ -80,7 +84,9 @@ def retrieve_events(api_key=None, **query_params):
         events_api += "?"
         while query_params:
             param, value = query_params.popitem()
-            events_api = events_api + param + '=' + value
+            if isinstance(value, float):
+                value = round(value)
+            events_api = f'{events_api}{param}={value}'
             if query_params:
                 events_api += "&"
 
@@ -176,28 +182,28 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, output_dir=None):
+def process_run(api_key, job_params, output_dir=None):
     """
-    Retrieve asset events via OpenSea API based on a list of account addresses
-    @TODO: extend this method to page forward or backward via cursor param
+    Retrieve asset events via OpenSea API based on a list of job parameters
 
     Parameters
     ----------
     output_dir : str, default os.path.join(os.getcwd(), 'data')
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
-    api_params : dict
-        query parameters:
+    job_params : dict
+        job parameters:
+            n_request = _param.get('n_request', True)
+            page_num = _param.get('page_num', 1)
+            ascending
+                if true, use previous cursor
+                else, use next cursor
+        API query parameters:
+            account_address
+            asset_account_address
             event_type
-            cursor
-            account_address : list
-            asset_contract_address : list
+            cursor: previous or next
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
-    page_num : int, default 1
-        index to track the number of event pages, see cursor
-    n_request : int, default None
-        number requests to make or run till out of data if None
-    ascending : bool, default False
 
     Returns
     -------
@@ -206,49 +212,56 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
     """
     if output_dir is None:
         output_dir = os.path.join(os.getcwd(), 'data')
-    if n_request is None or np.isnan(n_request):
-        n_request = True
-    if page_num is None or np.isnan(page_num):
-        page_num = 1
-    status = "success"
-    _cursor = ""
 
-    # check type of addresses {'account_address', 'asset_contract_address'}
-    for param, value in api_params.items():
-        if param in ['account_address', 'asset_contract_address']:
-            address_filter = param
-            addresses = value
+    status = 'success'
+    _cursor = ''
 
-    for m, _address in enumerate(addresses):
-        api_params.update({address_filter: _address})
+    for m, _param in enumerate(job_params):
+        n_request = _param.get('n_request', True)
+        page_num = round(_param.get('page_num', 1))
+        ascending = _param.get('ascending', False)
+        # check type of addresses {'account_address', 'asset_contract_address'}
+        # to use in output directory name
+        for param, value in _param.items():
+            if param in ['account_address', 'asset_contract_address']:
+                address_filter = param
+                address = value
+                # @TODO: fix this; once set, don't continue to iterate but I want to be able to set more than one value
+                break
+            else:
+                address_filter = '_'
+                address = '_'
 
+        next_page = n_request
         try:
-            next_page = n_request
             while next_page:
-                events = retrieve_events(api_key, **api_params).json()
+
+                query_params = dict(asset_contract_address=_param['asset_contract_address'],
+                                    limit=_param['limit'])
+                events = retrieve_events(api_key, **query_params).json()
 
                 # save each response JSON as a separate file
                 if output_dir.startswith('s3://'):
                     # save to aws
-                    # _dir = 's3://nftfomo/asset_events/' + _address
-                    _dir = f'{output_dir}/{address_filter}/{_address}'
+                    # _dir = 's3://nftfomo/asset_events/' + address_filter + address
+                    _dir = f'{output_dir}/{address_filter}/{address}'
                 else:
-                    _dir = os.path.join(output_dir, address_filter, _address)
+                    _dir = os.path.join(output_dir, address_filter, address)
                 save_response_json(events, _dir, page_num)
-                logger.debug(f'saved {address_filter}: {_address}, page: {page_num}')
+                logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
                 if ascending:
                     _cursor = events['previous']
                 else:
                     _cursor = events['next']
                 if _cursor is not None:
-                    api_params['cursor'] = _cursor
+                    _param['cursor'] = _cursor
                     page_num += 1
                     if not isinstance(n_request, bool):
                         next_page -= 1
                 else:
-                    logger.info(f'{_address} finished: {page_num} page(s)')
-                    api_params.pop('cursor')
+                    logger.info(f'{address} finished: {page_num} page(s)')
+                    _param.pop('cursor')
                     _cursor = ''
                     next_page = False
 
@@ -262,8 +275,8 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
-            status = (addresses[m], api_params, page_num)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
         #   HTTPSConnectionPool(host='api.opensea.io', port=443):
@@ -272,15 +285,15 @@ def process_run(api_key, api_params, page_num=1, n_request=1, ascending=False, o
             logger.error(repr(e))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
-            status = (addresses[m], api_params, page_num, next_page)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': _cursor})
-            status = (addresses[m], api_params, page_num, next_page)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
 
     return status
 
@@ -302,8 +315,8 @@ def events_json_to_dataframe(json_path):
     if not isinstance(json_path, list):
         json_path = [json_path]
     for p in json_path:
-        with open(p) as f:
-            data = json.load(f)
+        with open(p) as fr:
+            data = json.load(fr)
         lst.extend(parse_events(data))
 
     return pd.DataFrame(lst)
@@ -386,11 +399,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=fwrite)
 
 
-def controlfunc(func, api_key, api_params, retry_max=10,
-                page_num=1,
-                n_request=1,
-                ascending=False,
-                output_dir=None):
+def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -400,26 +409,24 @@ def controlfunc(func, api_key, api_params, retry_max=10,
         for now, it is process_run
         @TODO different function to process for example retrieve collections
     api_key
-    api_params : dict
+    job : list
         see example
+    output_dir
+    ascending : bool, default False
     retry_max : int
         maximum number of retries when encounters exception
-    n_request : int, default 1
-    page_num : int, default 1
-    ascending : bool, default False
-    output_dir
     """
     retry_count = 0
     run = True
     while run:
-        s_f = func(api_key, api_params, page_num, n_request, ascending, output_dir)
+        s_f = func(api_key, job, output_dir)
         if s_f == "success":
             if retry_count > 0:
                 retry_count -= 1
             run = False
             logger.info('finished!!!!')
         else:
-            msg, api_params, page_num, n_request = s_f
+            msg, job = s_f
             retry_count += 1
             logger.info(f"Retry {retry_count}: {msg}")
         if retry_count > retry_max:
