@@ -20,7 +20,9 @@ filter_params = {'asset_contract_address': jobs.asset_contract_address, 'cursor'
 
 # crawler.process_run(api_key1, filter_params, page_num=jobs.page_num[0], n_request=2615, ascending=True)
 
-output_dir = os.path.join(os.getcwd(), 'data', 'v')
-crawler.controlfunc(crawler.process_run, api_key1, filter_params,
-                    page_num=jobs.page_num[0], n_request=2615, ascending=True,
-                    output_dir=output_dir)
+# output_dir = os.path.join(os.getcwd(), 'data', 'v')
+# crawler.controlfunc(crawler.process_run, api_key1, filter_params,
+#                     page_num=jobs.page_num[0], n_request=2615, ascending=True,
+#                     output_dir=output_dir)
+output_dir = os.path.join(os.getcwd(), 'tmp')
+crawler.controlfunc(crawler.process_run, api_key1, filter_params, output_dir=output_dir, ascending=True)
