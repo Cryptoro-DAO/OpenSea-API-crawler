@@ -463,19 +463,18 @@ if __name__ == '__main__':
 
     api_key1, api_key2 : If a key not provided, the module calls testnets-api
     """
-    # Read a list of wallet addresses from file
-    # @TODO: make the csv header the query parameter key
+    # Read a list of wallet addresses or NFT contract addresses from file
     fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    address_inputs = pd.read_csv(fn)['account_address'].values
-    # Read a list of collection contract addresses from file
     # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    # address_inputs = pd.read_csv(fn)['collection_address'].values
+    jobs = pd.read_csv(fn).to_dict('records')
 
     chunk_size = 1
     range_s = 0
     range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
-    address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
+    job_chunks = list(chunks(jobs[range_s:range_e], chunk_size))
+
+    output_dir = os.path.join(os.getcwd(), 'tmp')
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
@@ -491,7 +490,7 @@ if __name__ == '__main__':
     start = dt.datetime.now()
     logger.info("Start")
     # spawn threads based on the number of chucks
-    thread_sz = len(address_chunks)
+    thread_sz = len(job_chunks)
     for n in range(thread_sz):
         # distribute keys among threads
         if (n % 2) == 0:
@@ -499,11 +498,8 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
-        filter_params = {'account_address': address_chunks[n], 'limit': '100'}
-        # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
-        # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
-        globals()["add_thread%s" % n] = Thread(target=controlfunc, args=(process_run, key_, filter_params))
+        globals()["add_thread%s" % n] = Thread(target=controlfunc,
+                                               args=(process_run, key_, job_chunks[n], output_dir))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
