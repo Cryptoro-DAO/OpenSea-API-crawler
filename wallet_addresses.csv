@@ -1,5 +1,5 @@
-﻿account_address,remark
-0xbce3bd3b206946abbe094903ae2b4244b52fb4e9,a wallet with plenty of transaction history
-0xba5edc0d2ae493c9574328d77dc36eef19f699e2,seems to be ok now; used to always throw error; unable to finish paging
-0x6f4a2d3a4f47f9c647d86c929755593911ee91ec,
-0xe1d29d0a39962a9a8d2a297ebe82e166f8b8ec18,
+﻿account_address,event_type,remark
+0xbce3bd3b206946abbe094903ae2b4244b52fb4e9,successful,a wallet with plenty of transaction history
+0xba5edc0d2ae493c9574328d77dc36eef19f699e2,successful,seems to be ok now; used to always throw error; unable to finish paging
+0x6f4a2d3a4f47f9c647d86c929755593911ee91ec,successful,
+0xe1d29d0a39962a9a8d2a297ebe82e166f8b8ec18,successful,
