@@ -84,11 +84,12 @@ def retrieve_events(api_key=None, **query_params):
         events_api += "?"
         while query_params:
             param, value = query_params.popitem()
-            if isinstance(value, float):
-                value = round(value)
-            events_api = f'{events_api}{param}={value}'
-            if query_params:
-                events_api += "&"
+            if not pd.isna(value) and value is not None:
+                if isinstance(value, float):
+                    value = round(value)
+                events_api = f'{events_api}{param}={value}'
+                if query_params:
+                    events_api += "&"
 
     response = requests.get(events_api, headers=headers)
 

@@ -13,9 +13,9 @@ api_key1, api_key2 : If a key not provided, the module calls testnets-api
 import os
 import csv
 import datetime as dt
-from threading import Thread
 import pandas as pd
 import data_crawler as crawler
+from threading import Thread
 
 
 # read API keys from file
@@ -61,4 +61,3 @@ for nn in range(thread_sz):
     globals()["add_thread%s" % nn].join()
 
 crawler.logger.info("End! Total time: {}".format(dt.datetime.now() - start))
-
