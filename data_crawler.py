@@ -56,9 +56,9 @@ def retrieve_events(api_key=None, **query_params):
     ----------
     api_key : str
         an OpenSea API Key. If not defined, call testnets-api.
-    query_params
+    query_params: dict
         param_key=string_value, e.g. only_opensea="True"
-
+        {'asset_contract_address', 'asset_account_address', 'event_type', 'cursor', 'limit'}
     Returns
     -------
     Response
@@ -68,8 +68,12 @@ def retrieve_events(api_key=None, **query_params):
     ------
     HTTPError
     """
-
     headers = {"X-API-KEY": api_key}
+
+    # filter to only acceptable parameter keys
+    query_keys = {'asset_contract_address', 'asset_account_address',
+                  'event_type', 'cursor', 'limit'}
+    query_params = {key: val for key, val in query_params.items() if key in query_keys}
 
     if api_key is None:
         events_api = test_v1 + "/events"
@@ -80,9 +84,12 @@ def retrieve_events(api_key=None, **query_params):
         events_api += "?"
         while query_params:
             param, value = query_params.popitem()
-            events_api = events_api + param + '=' + value
-            if query_params:
-                events_api += "&"
+            if not pd.isna(value) and value is not None:
+                if isinstance(value, float):
+                    value = round(value)
+                events_api = f'{events_api}{param}={value}'
+                if query_params:
+                    events_api += "&"
 
     response = requests.get(events_api, headers=headers)
 
@@ -162,7 +169,7 @@ def parse_events(events):
             data["contract_address"] = event["contract_address"]
 
             data["msg"] = "success"  # @TODO: remove this; recording only error stat sufficient?
-            data["next_param"] = events["next"] # @TODO: remove this; probably not needed as part of the dataframe
+            data["next_param"] = events["next"]  # @TODO: remove this; probably not needed as part of the dataframe
 
             events_list.append(data)
     else:
@@ -176,72 +183,98 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, api_params, page_num=1):
+def process_run(api_key, job_params, output_dir=None):
     """
-    Retrieve asset events via OpenSea API based on a list of account addresses
-    @TODO: extend this method to page forward or backward via cursor param
+    Retrieve asset events via OpenSea API based on a list of job parameters
 
     Parameters
     ----------
+    output_dir : str, default os.path.join(os.getcwd(), 'data')
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
-    api_params : dict
-        query parameters:
+    job_params : dict
+        job parameters:
+            n_request = _param.get('n_request', True)
+            page_num = _param.get('page_num', 1)
+            ascending
+                if true, use previous cursor
+                else, use next cursor
+        API query parameters:
+            account_address
+            asset_account_address
             event_type
-            cursor
-            account_address : list
-            asset_contract_address : list
+            cursor: previous or next
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
-    page_num : int
-        index to track the number of event pages, see cursor
 
     Returns
     -------
     status code
-        "success", or if failed a tuple (message, current API parameters, current page count)
+        "success", or if failed a tuple (message, current API parameters, current page count, number of requests)
     """
-    status = "success"
-    next_param = ""
+    if output_dir is None:
+        output_dir = os.path.join(os.getcwd(), 'data')
 
-    # check type of addresses {'account_address', 'asset_contract_address'}
-    for param, value in api_params.items():
-        if param in ['account_address', 'asset_contract_address']:
-            address_filter = param
-            addresses = value
+    status = 'success'
+    _cursor = ''
 
-    data_dir = os.path.join(os.getcwd(), 'data', 'asset_events', address_filter)
-    for m, _address in enumerate(addresses):
-        api_params.update({address_filter: _address})
+    for m, _param in enumerate(job_params):
+        n_request = _param.get('n_request', True)
+        if n_request != n_request:
+            n_request = True
+        page_num = _param.get('page_num', 1)
+        if page_num != page_num:
+            page_num = 1
+        else:
+            page_num = round(page_num)
+        ascending = _param.get('ascending', False)
+        if ascending != ascending:
+            ascending = True
 
+        # set base directory _dir for each job
+        # @TODO: refactor this to append both account_address and asset_contract_address
+        # check type of addresses {'account_address', 'asset_contract_address'}
+        # to use in output directory name
+        for param, value in _param.items():
+            if param in ['account_address', 'asset_contract_address']:
+                address_filter = param
+                address = value
+                # @TODO: fix this; once set, don't continue to iterate but I want to be able to set more than one value
+                break
+            else:
+                address_filter = ''
+                address = ''
+        if output_dir.startswith('s3://'):
+            # save to aws
+            # _dir = 's3://nftfomo/asset_events/' + address_filter + address
+            _dir = f'{output_dir}/{address_filter}/{address}'
+        else:
+            _dir = os.path.join(output_dir, address_filter, address)
+
+        next_page = n_request
         try:
-            next_page = True
             while next_page:
-                events = retrieve_events(api_key, **api_params).json()
+
+                events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate file
-                output_dir = os.path.join(data_dir, _address)
-                # save to aws
-                # output_dir = 's3://nftfomo/asset_events/' + _address
-                save_response_json(events, output_dir, page_num)
-                logger.debug(f'saved {address_filter}: {_address}, page: {page_num}')
+                save_response_json(events, _dir, page_num)
+                logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
-                next_param = events['next']
-                if next_param is not None:
-                    api_params['cursor'] = next_param
-                    page_num += 1
+                if ascending:
+                    _cursor = events['previous']
                 else:
-                    logger.info(f'{_address} finished: {page_num} page(s)')
-                    api_params.pop('cursor')
-                    next_param = ''
-                    page_num = 1
+                    _cursor = events['next']
+                if _cursor is not None:
+                    _param['cursor'] = _cursor
+                    page_num += 1
+                    if not isinstance(n_request, bool):
+                        next_page -= 1
+                else:
+                    logger.info(f'{address} finished: {page_num} page(s)')
+                    _param.pop('cursor')
+                    _cursor = ''
                     next_page = False
 
-                # @TODO: for DEBUGGING, run max 2 pages. Remember to comment or remove before production
-                # if page_num == 2:
-                #     api_params.pop('cursor')
-                #     next_param = ''
-                #     page_num = 0
-                #     next_page = False
         except requests.exceptions.HTTPError as err:
             # @TODO: better workaround when 429 Client Error: Too Many Requests for url
             # @TODO: 520 Server Error
@@ -252,8 +285,8 @@ def process_run(api_key, api_params, page_num=1):
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = (addresses[m], api_params, page_num)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
         #   HTTPSConnectionPool(host='api.opensea.io', port=443):
@@ -262,15 +295,15 @@ def process_run(api_key, api_params, page_num=1):
             logger.error(repr(e))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = (addresses[m], api_params, page_num)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            api_params.update({address_filter: addresses[m:], 'cursor': next_param})
-            status = (addresses[m], api_params, page_num)
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            status = (address, job_params[m:])
 
     return status
 
@@ -292,8 +325,8 @@ def events_json_to_dataframe(json_path):
     if not isinstance(json_path, list):
         json_path = [json_path]
     for p in json_path:
-        with open(p) as f:
-            data = json.load(f)
+        with open(p) as fr:
+            data = json.load(fr)
         lst.extend(parse_events(data))
 
     return pd.DataFrame(lst)
@@ -376,7 +409,7 @@ def save_response_json(events, output_dir, page_num):
             json.dump(events, fp=fwrite)
 
 
-def controlfunc(func, api_key, api_params, retry_max=10):
+def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
     """
     process_run的外層函數，當執行中斷時自動繼續往下執行
 
@@ -386,23 +419,24 @@ def controlfunc(func, api_key, api_params, retry_max=10):
         for now, it is process_run
         @TODO different function to process for example retrieve collections
     api_key
-    api_params : dict
+    job : list
         see example
+    output_dir
+    ascending : bool, default False
     retry_max : int
         maximum number of retries when encounters exception
     """
     retry_count = 0
-    page_num = 1
     run = True
     while run:
-        s_f = func(api_key, api_params, page_num)
+        s_f = func(api_key, job, output_dir)
         if s_f == "success":
             if retry_count > 0:
                 retry_count -= 1
             run = False
             logger.info('finished!!!!')
         else:
-            msg, api_params, page_num = s_f
+            msg, job = s_f
             retry_count += 1
             logger.info(f"Retry {retry_count}: {msg}")
         if retry_count > retry_max:
@@ -429,19 +463,18 @@ if __name__ == '__main__':
 
     api_key1, api_key2 : If a key not provided, the module calls testnets-api
     """
-    # Read a list of wallet addresses from file
-    # @TODO: make the csv header the query parameter key
+    # Read a list of wallet addresses or NFT contract addresses from file
     fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    address_inputs = pd.read_csv(fn)['account_address'].values
-    # Read a list of collection contract addresses from file
     # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    # address_inputs = pd.read_csv(fn)['collection_address'].values
+    jobs = pd.read_csv(fn).to_dict('records')
 
     chunk_size = 1
     range_s = 0
     range_e = 4
     # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
-    address_chunks = list(chunks(address_inputs[range_s:range_e], chunk_size))
+    job_chunks = list(chunks(jobs[range_s:range_e], chunk_size))
+
+    output_dir = os.path.join(os.getcwd(), 'tmp')
 
     # read API keys from file
     # each line in file is a key value pair separated by `=`
@@ -457,7 +490,7 @@ if __name__ == '__main__':
     start = dt.datetime.now()
     logger.info("Start")
     # spawn threads based on the number of chucks
-    thread_sz = len(address_chunks)
+    thread_sz = len(job_chunks)
     for n in range(thread_sz):
         # distribute keys among threads
         if (n % 2) == 0:
@@ -465,11 +498,8 @@ if __name__ == '__main__':
         else:
             key_ = api_key2
 
-        # filter_params = {'account_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
-        filter_params = {'account_address': address_chunks[n], 'limit': '100'}
-        # filter_params = {'asset_contract_address': address_chunks[n], 'event_type': 'successful', 'limit': '100'}
-        # filter_params = {'asset_contract_address': address_chunks[n], 'limit': '100'}
-        globals()["add_thread%s" % n] = Thread(target=controlfunc, args=(process_run, key_, filter_params))
+        globals()["add_thread%s" % n] = Thread(target=controlfunc,
+                                               args=(process_run, key_, job_chunks[n], output_dir))
         globals()["add_thread%s" % n].start()
 
     for nn in range(thread_sz):
