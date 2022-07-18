@@ -14,7 +14,11 @@ import s3fs
 import logging
 from threading import Thread
 
-# create logger with 'spam_application'
+# create a subdirectory to save response json object
+log_dir = os.path.join(os.getcwd(), 'log')
+if not os.path.isdir(log_dir):
+    os.makedirs(log_dir)
+# create logger with 'data_crawler'
 logger = logging.getLogger('data_crawler')
 logger.setLevel(logging.DEBUG)
 # create file handler which logs even debug messages
