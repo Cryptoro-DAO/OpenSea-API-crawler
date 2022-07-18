@@ -3,6 +3,7 @@ OpenSea API-Retrieve events
     Parse events, save the response to local disk or s3
     Make use of API's cursor to retrieve previous or next page
 """
+import gzip
 import json
 import requests
 import numpy as np
@@ -358,6 +359,8 @@ def df_to_parquet(df: pd.DataFrame, out_path):
 
 def to_excel(address_filter, addresses, data_dir, data_lis, m):
     """
+    deprecated; not scalable
+
 
     Parameters
     ----------
@@ -409,8 +412,9 @@ def save_response_json(events, output_dir, page_num):
         # create a subdirectory to save response json object
         if not os.path.isdir(os.path.join(output_dir)):
             os.makedirs(output_dir)
-        with open(os.path.join(output_dir, str(page_num) + '.json'), 'w') as fwrite:
-            json.dump(events, fp=fwrite)
+        with open(os.path.join(output_dir, str(page_num) + '.json'), 'wb') as fwrite:
+            with gzip.open(fwrite, 'wb') as gz_write:
+                gz_write.write(json.dumps(events).encode('utf-8'))
 
 
 def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
