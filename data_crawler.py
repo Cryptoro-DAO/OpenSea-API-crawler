@@ -261,7 +261,7 @@ def process_run(api_key, job_params, output_dir=None):
 
                 events = retrieve_events(api_key, **_param).json()
 
-                # save each response JSON as a separate file
+                # save each response JSON as a separate, compressed file
                 save_response_json(events, _dir, f'{page_num}.json.gz')
                 logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
@@ -404,8 +404,12 @@ def save_response_json(obj, output_path, filename, encoding='utf-8', compress='g
     if output_path.startswith('s3://'):
         s3 = s3fs.S3FileSystem(anon=False)
         s3_uri = output_path[5:] + '/' + str(filename)
-        with s3.open(s3_uri, 'w') as fwrite:
-            json.dump(obj, fp=fwrite)
+        with s3.open(s3_uri, 'wb') as fwrite:
+            if compress == 'gzip':
+                with gzip.open(fwrite, 'wb') as gz:
+                    gz.write(json.dumps(obj).encode(encoding))
+            else:
+                fwrite.write(json.dumps(obj).encode(encoding))
     else:
         # create a subdirectory to save response json object
         if not os.path.isdir(os.path.join(output_path)):
