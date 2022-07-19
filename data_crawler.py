@@ -275,6 +275,7 @@ def process_run(api_key, job_params, output_dir=None):
                     if not isinstance(n_request, bool):
                         next_page -= 1
                 else:
+                    # TODO: this message counter is incorrect of page_number doesn't start with 1
                     logger.info(f'{address} finished: {page_num} page(s)')
                     _param.pop('cursor')
                     _cursor = ''
@@ -309,6 +310,10 @@ def process_run(api_key, job_params, output_dir=None):
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
             status = (address, job_params[m:])
+        # @TODO: refactor with finally
+        #   記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+        #   job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
+        #   status = (address, job_params[m:])
 
     return status
 
