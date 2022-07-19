@@ -290,7 +290,7 @@ def process_run(api_key, job_params, output_dir=None):
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
             status = (address, job_params[m:])
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
@@ -300,14 +300,14 @@ def process_run(api_key, job_params, output_dir=None):
             logger.error(repr(e))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
             status = (address, job_params[m:])
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
 
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num})
+            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
             status = (address, job_params[m:])
 
     return status
