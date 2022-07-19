@@ -262,7 +262,7 @@ def process_run(api_key, job_params, output_dir=None):
                 events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate file
-                save_response_json(events, _dir, page_num)
+                save_response_json(events, _dir, f'{page_num}.json')
                 logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
                 if ascending:
@@ -388,7 +388,7 @@ def to_excel(address_filter, addresses, data_dir, data_lis, m):
     return data_lis
 
 
-def save_response_json(obj, output_path, filename, encoding='utf-8'):
+def save_response_json(obj, output_path, filename, encoding='utf-8', compress='gzip'):
     """
     If output_dir begins with `s3://`, save the events JSON to AWS s3,
     else save to the specified local directory.
@@ -403,16 +403,19 @@ def save_response_json(obj, output_path, filename, encoding='utf-8'):
     """
     if output_path.startswith('s3://'):
         s3 = s3fs.S3FileSystem(anon=False)
-        rpath = output_path[5:] + '/' + str(filename) + '.json'
-        with s3.open(rpath, 'w') as fwrite:
+        s3_uri = output_path[5:] + '/' + str(filename)
+        with s3.open(s3_uri, 'w') as fwrite:
             json.dump(obj, fp=fwrite)
     else:
         # create a subdirectory to save response json object
         if not os.path.isdir(os.path.join(output_path)):
             os.makedirs(output_path)
-        with open(os.path.join(output_path, str(filename) + '.json'), 'wb') as fwrite:
-            with gzip.open(fwrite, 'wb') as gz:
-                gz.write(json.dumps(obj).encode(encoding))
+        with open(os.path.join(output_path, str(filename)), 'wb') as fwrite:
+            if compress == 'gzip':
+                with gzip.open(fwrite, 'wb') as gz:
+                    gz.write(json.dumps(obj).encode(encoding))
+            else:
+                fwrite.write(json.dumps(obj).encode(encoding))
 
 
 def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
