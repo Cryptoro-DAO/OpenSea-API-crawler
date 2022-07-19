@@ -262,7 +262,7 @@ def process_run(api_key, job_params, output_dir=None):
                 events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate file
-                save_response_json(events, _dir, f'{page_num}.json')
+                save_response_json(events, _dir, f'{page_num}.json.gz')
                 logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
                 if ascending:
