@@ -287,34 +287,22 @@ def process_run(api_key, job_params, output_dir=None):
             # @TODO: 520 Server Error
             # @TODO: 524 Server Error << Cloudflare Timeout?
             logger.error(repr(err))
-
             if err.response.status_code == 429:
                 time.sleep(6)  # @TODO: make the sleep time adjustable?
-
-            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-            status = (address, job_params[m:])
         # except requests.exceptions.SSLError
         # @TODO: requests.exceptions.SSLError:
         #   HTTPSConnectionPool(host='api.opensea.io', port=443):
         #   Max retries exceeded with url
         except requests.exceptions.RequestException as e:
             logger.error(repr(e))
-
-            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-            status = (address, job_params[m:])
         # @TODO: remove this catch all Exception
         except Exception as e:
             logger.error(repr(e.args))
-
+            logger.error('unknown exception catch-all')
+        finally:
             # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
             job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
             status = (address, job_params[m:])
-        # @TODO: refactor with finally
-        #   記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-        #   job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-        #   status = (address, job_params[m:])
 
     return status
 
@@ -456,7 +444,7 @@ def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
         else:
             msg, job = s_f
             retry_count += 1
-            logger.info(f"Retry {retry_count}: {msg}")
+            logger.error(f"Retry {retry_count}: {msg}")
         if retry_count > retry_max:
             run = False
             logger.critical('Abort!!! Too many errors!!!')
