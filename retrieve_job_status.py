@@ -10,8 +10,8 @@ import pandas as pd
 import s3fs
 
 
-jobs_nxt = pd.read_csv(os.path.join(os.getcwd(), 'jobs.csv'))
-jobs_prv = pd.read_csv(os.path.join(os.getcwd(), 'jobs_get_previous.csv'))
+jobs_nxt = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
+jobs_prv = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'))
 
 base_uri = 'opensea-sg/lz/asset_events/20220719/asset_contract_address/'
 # base_uri = 'opensea-sg/lz/asset_events/asc-20220718T0947cst/' \

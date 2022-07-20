@@ -29,7 +29,7 @@ with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
     api_key1 = secrets['api_key1']
     api_key2 = secrets['api_key2']
 
-jobs = pd.read_csv(os.path.join(os.getcwd(), 'jobs_get_previous.csv')).to_dict('records')
+jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv')).to_dict('records')
 
 chunk_size = 1
 range_s = 19
