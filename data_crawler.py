@@ -440,7 +440,6 @@ def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
     job : list
         see example
     output_dir
-    ascending : bool, default False
     retry_max : int
         maximum number of retries when encounters exception
     """
