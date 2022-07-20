@@ -48,4 +48,6 @@ for _uri in ls_uri:
         _bucket, _path, _ver_id = fs.split_path(_uri)
         print(os.path.basename(_path)[:-len('.json.gz')])
 
+jobs_nxt.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'), index=False)
+jobs_prv.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'), index=False)
 print('done')
