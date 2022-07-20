@@ -259,6 +259,7 @@ def process_run(api_key, job_params, output_dir=None):
         try:
             while next_page:
 
+                # @TODO: refactor with try... catch here or in retrieve event
                 events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate, compressed file
