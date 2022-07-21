@@ -25,24 +25,27 @@ for _uri in ls_uri:
         # sort objects: 1.json.gz, 10.json.gz, 2.json.gz, 3.json.gz...
         i = [int(os.path.basename(ea)[:-len('.json.gz')]) for ea in obj]
         i.sort()
-        head = f'{_uri}/{i[1]}.json.gz'  # 2nd item from the head
-        tail = f'{_uri}/{i[-1]}.json.gz'
-        print('head:{}\ntail:{}'.format(head, tail))
+        try:
+            head = f'{_uri}/{i[1]}.json.gz'  # 2nd item from the head
+            tail = f'{_uri}/{i[-1]}.json.gz'
+            print('head:{}\ntail:{}'.format(head, tail))
 
-        asset_contract_address = os.path.basename(_uri)
-        i = jobs_nxt.asset_contract_address == asset_contract_address
+            asset_contract_address = os.path.basename(_uri)
+            i = jobs_nxt.asset_contract_address == asset_contract_address
 
-        # head = get previous
-        with fs.open(head, 'rb') as fread:
-            with gzip.open(fread) as gz:
-                events = json.load(gz)
-        jobs_prv.loc[i, 'cursor'] = events['previous']
+            # head = get previous
+            with fs.open(head, 'rb') as fread:
+                with gzip.open(fread) as gz:
+                    events = json.load(gz)
+            jobs_prv.loc[i, 'cursor'] = events['previous']
 
-        # tail = get next
-        with fs.open(tail, 'rb') as fread:
-            with gzip.open(fread) as gz:
-                events = json.load(gz)
-        jobs_nxt.loc[i, ['cursor', 'page_num']] = [events['next'], int(os.path.basename(tail)[:-len('.json.gz')]) + 1]
+            # tail = get next
+            with fs.open(tail, 'rb') as fread:
+                with gzip.open(fread) as gz:
+                    events = json.load(gz)
+            jobs_nxt.loc[i, ['cursor', 'page_num']] = [events['next'], int(os.path.basename(tail)[:-len('.json.gz')]) + 1]
+        except IndexError:
+            print(f'{os.path.basename(_uri)} insufficient data.')
 
     else:
         _bucket, _path, _ver_id = fs.split_path(_uri)
