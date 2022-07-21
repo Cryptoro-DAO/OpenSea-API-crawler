@@ -63,7 +63,11 @@ def retrieve_events(api_key=None, **query_params):
         an OpenSea API Key. If not defined, call testnets-api.
     query_params: dict
         param_key=string_value, e.g. only_opensea="True"
-        {'asset_contract_address', 'asset_account_address', 'event_type', 'cursor', 'limit'}
+        {'asset_contract_address', 'collection_slug',
+         'account_address',
+         'event_type',
+         'occurred_before', 'occurred_after',
+         'cursor', 'limit'}
     Returns
     -------
     Response
@@ -76,8 +80,11 @@ def retrieve_events(api_key=None, **query_params):
     headers = {"X-API-KEY": api_key}
 
     # filter to only acceptable parameter keys
-    query_keys = {'asset_contract_address', 'asset_account_address',
-                  'event_type', 'cursor', 'limit'}
+    query_keys = {'asset_contract_address', 'collection_slug',
+                  'account_address',
+                  'event_type',
+                  'occurred_before', 'occurred_after',
+                  'cursor', 'limit'}
     query_params = {key: val for key, val in query_params.items() if key in query_keys}
 
     if api_key is None:
