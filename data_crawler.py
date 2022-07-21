@@ -408,10 +408,11 @@ def save_response_json(obj, output_path, filename, encoding='utf-8', compress='g
     output_path
     filename
     encoding
+    compress
     """
     if output_path.startswith('s3://'):
         s3 = s3fs.S3FileSystem(anon=False)
-        s3_uri = output_path[5:] + '/' + str(filename)
+        s3_uri = f'{output_path[len("s3://"):]}/{filename}'
         with s3.open(s3_uri, 'wb') as fwrite:
             if compress == 'gzip':
                 with gzip.open(fwrite, 'wb') as gz:
