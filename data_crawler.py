@@ -203,9 +203,9 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
     ----------
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
-    job_params : dict
-        job parameters:
-            n_request = _param.get('n_request', True)
+    job_params : list
+        dictionary of job parameters:
+            n_request = _param.get('n_request', 1)
             page_num = _param.get('page_num', 1)
             ascending
                 if true, use previous cursor
@@ -214,6 +214,8 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
             account_address
             asset_account_address
             event_type
+            occurred_before
+            occurred_after
             cursor: previous or next
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
     output_dir : str, default to current working directory subdirectory 'tmp'
@@ -291,7 +293,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 else:
                     # TODO: this message counter is incorrect of page_number doesn't start with 1
                     logger.info(f'{address} finished: {page_num} page(s)')
-                    _param.pop('cursor')
+                    _param['cursor'] = None
                     _cursor = ''
                     next_page = False
 
