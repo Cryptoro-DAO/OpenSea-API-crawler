@@ -197,7 +197,11 @@ def parse_events(events):
 
 def process_run(api_key, job_params, output_dir=None, retry_max=10):
     """
-    Retrieve asset events via OpenSea API based on a list of job parameters
+    Retrieve asset events via OpenSea API based on a list of job parameters. Save the result in the output directory.
+    If event_type, asset_account_address, or account_address are specified in the job params,
+    subdirectory are created in the following order: event_type, asset_account_address and account_address.
+
+    if output_dir begins with 's3://', the results are saved in the s3 bucket.
 
     Parameters
     ----------
@@ -248,6 +252,11 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
             ascending = False
 
         # set base directory _dir for each job
+        _dir = output_dir.rstrip('/')
+        for key in ['event_type', 'asset_account_address', 'account_address']:
+            if _param[key]:
+                _dir = f'{_dir}/{key}-{_param[key]}'
+
         # @TODO: refactor this to append both account_address and asset_contract_address
         # check type of addresses {'account_address', 'asset_contract_address'}
         # to use in output directory name
@@ -260,12 +269,6 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
             else:
                 address_filter = ''
                 address = ''
-        if output_dir.startswith('s3://'):
-            # save to aws
-            # _dir = 's3://nftfomo/asset_events/' + address_filter + address
-            _dir = f'{output_dir}/{address_filter}/{address}'
-        else:
-            _dir = os.path.join(output_dir, address_filter, address)
 
         logger.info(f'Starting job {m+1} of {len(job_params)}')
 
