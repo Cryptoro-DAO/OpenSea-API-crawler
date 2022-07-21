@@ -188,13 +188,12 @@ def parse_events(events):
     return events_list
 
 
-def process_run(api_key, job_params, output_dir=None):
+def process_run(api_key, job_params, output_dir=None, retry_max=10):
     """
     Retrieve asset events via OpenSea API based on a list of job parameters
 
     Parameters
     ----------
-    output_dir : str, default os.path.join(os.getcwd(), 'data')
     api_key : str
         OpenSea API key, if None or '', testnets-api is used
     job_params : dict
@@ -210,6 +209,9 @@ def process_run(api_key, job_params, output_dir=None):
             event_type
             cursor: previous or next
         * currently supports only one list at a time, do not specify both account_address and asset_contract_address
+    output_dir : str, default to current working directory subdirectory 'tmp'
+    retry_max : int, default 10
+        maximum number of consecutive attempts calling retrieve_events()
 
     Returns
     -------
@@ -217,8 +219,9 @@ def process_run(api_key, job_params, output_dir=None):
         "success", or if failed a tuple (message, current API parameters, current page count, number of requests)
     """
     if output_dir is None:
-        output_dir = os.path.join(os.getcwd(), 'data')
+        output_dir = os.path.join(os.getcwd(), 'tmp')
 
+    retry = 0
     status = 'success'
     _cursor = ''
 
@@ -255,17 +258,21 @@ def process_run(api_key, job_params, output_dir=None):
         else:
             _dir = os.path.join(output_dir, address_filter, address)
 
-        next_page = n_request
-        try:
-            while next_page:
+        logger.info(f'Starting job {m+1} of {len(job_params)}')
 
-                # @TODO: refactor with try... catch here or in retrieve event
+        next_page = n_request
+        while next_page:
+            try:
                 events = retrieve_events(api_key, **_param).json()
 
                 # save each response JSON as a separate, compressed file
                 save_response_json(events, _dir, f'{page_num}.json.gz')
                 logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
 
+                # decrease count when retrieve_events is successful
+                if retry > 0:
+                    retry -= 1
+                # paging
                 if ascending:
                     _cursor = events['previous']
                 else:
@@ -273,8 +280,7 @@ def process_run(api_key, job_params, output_dir=None):
                 if _cursor is not None:
                     _param['cursor'] = _cursor
                     page_num += 1
-                    if not isinstance(n_request, bool):
-                        next_page -= 1
+                    next_page -= 1
                 else:
                     # TODO: this message counter is incorrect of page_number doesn't start with 1
                     logger.info(f'{address} finished: {page_num} page(s)')
@@ -282,27 +288,32 @@ def process_run(api_key, job_params, output_dir=None):
                     _cursor = ''
                     next_page = False
 
-        except requests.exceptions.HTTPError as err:
-            # @TODO: better workaround when 429 Client Error: Too Many Requests for url
-            # @TODO: 520 Server Error
-            # @TODO: 524 Server Error << Cloudflare Timeout?
-            logger.error(repr(err))
-            if err.response.status_code == 429:
-                time.sleep(6)  # @TODO: make the sleep time adjustable?
-        # except requests.exceptions.SSLError
-        # @TODO: requests.exceptions.SSLError:
-        #   HTTPSConnectionPool(host='api.opensea.io', port=443):
-        #   Max retries exceeded with url
-        except requests.exceptions.RequestException as e:
-            logger.error(repr(e))
-        # @TODO: remove this catch all Exception
-        except Exception as e:
-            logger.error(repr(e.args))
-            logger.error('unknown exception catch-all')
-        finally:
-            # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
-            job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-            status = (address, job_params[m:])
+            except requests.exceptions.HTTPError as err:
+                # @TODO: better workaround when 429 Client Error: Too Many Requests for url
+                # @TODO: 520 Server Error
+                # @TODO: 524 Server Error << Cloudflare Timeout?
+                logger.error(repr(err))
+                if err.response.status_code == 429:
+                    time.sleep(6)  # @TODO: make the sleep time adjustable?
+            except requests.exceptions.RequestException as e:
+                # @TODO: requests.exceptions.SSLError:
+                #   HTTPSConnectionPool(host='api.opensea.io', port=443):
+                #   Max retries exceeded with url
+                # @TODO: requests.exceptions.ChunkedEncodingError
+                logger.error('unknown request exception catch-all')
+                logger.error(repr(e))
+            finally:
+                # increase the count when retrieve event fails
+                retry += 1
+                logger.debug(f'Retry {retry}: {address}')
+                if retry > retry_max:
+                    logger.critical(f'{address} aborted!!! Too many failures!')
+                    next_page = False
+                    # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+                    job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
+                    status = (address, job_params[m:])
+
+        logger.info(f'Job {m+1} of {len(job_params)} ended.')
 
     return status
 
