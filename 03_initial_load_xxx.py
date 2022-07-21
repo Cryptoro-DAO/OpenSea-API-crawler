@@ -113,10 +113,6 @@ display(deltaTblEvents.history())
 
 # COMMAND ----------
 
-# MAGIC %sh rm -r /dbfs/mnt/opensea-sg/tmp/asset_contract_address/0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B
-
-# COMMAND ----------
-
 # MAGIC %md Moving ZIP file to archival bucket, i.e. imported
 
 # COMMAND ----------

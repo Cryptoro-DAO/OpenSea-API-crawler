@@ -6,21 +6,23 @@
 # MAGIC 
 # MAGIC Collection | asset contract address
 # MAGIC --- | ---
-# MAGIC || 0x59468516a8259058baD1cA5F8f4BFF190d30E066
-# MAGIC | | 0x67D9417C9C3c250f61A83C7e8658daC487B56B09
-# MAGIC | | 0x79FCDEF22feeD20eDDacbB2587640e45491b757f
-# MAGIC || 0x7EA3Cca10668B8346aeC0bf1844A49e995527c8B
-# MAGIC || 0x9A534628B4062E123cE7Ee2222ec20B86e16Ca8F
-# MAGIC || 0xd2F668a8461D6761115dAF8Aeb3cDf5F40C532C6
+# MAGIC Invisible Friends (INVSBLE)| 0x59468516a8259058baD1cA5F8f4BFF190d30E066
+# MAGIC Phanta Bear (PHB) | 0x67D9417C9C3c250f61A83C7e8658daC487B56B09
+# MAGIC mfer (MFER) | 0x79FCDEF22feeD20eDDacbB2587640e45491b757f
+# MAGIC CyberKongz VX (KONGZ VX) | 0x7EA3Cca10668B8346aeC0bf1844A49e995527c8B
+# MAGIC MekaVerse (MEKA) | 0x9A534628B4062E123cE7Ee2222ec20B86e16Ca8F
+# MAGIC Karafuru (KARAFURU) | 0xd2F668a8461D6761115dAF8Aeb3cDf5F40C532C6
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Total number of objects|Total size
+# MAGIC | -: | -: |
+# MAGIC |133,424|70.4 GB|
 
 # COMMAND ----------
 
 # MAGIC %fs ls /mnt/opensea-sg/lz/asset_events/asset_contract_address
-
-# COMMAND ----------
-
-base_location = '/mnt/opensea-sg/lz/asset_events/asset_contract_address'
-dbutils.fs.ls(base_location)[0].isDir()
 
 # COMMAND ----------
 
