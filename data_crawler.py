@@ -295,6 +295,9 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 logger.error(repr(err))
                 if err.response.status_code == 429:
                     time.sleep(6)  # @TODO: make the sleep time adjustable?
+                # increase the count when retrieve event fails
+                retry += 1
+                logger.debug(f'Retry {retry}: {address}')
             except requests.exceptions.RequestException as e:
                 # @TODO: requests.exceptions.SSLError:
                 #   HTTPSConnectionPool(host='api.opensea.io', port=443):
@@ -302,12 +305,12 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 # @TODO: requests.exceptions.ChunkedEncodingError
                 logger.error('unknown request exception catch-all')
                 logger.error(repr(e))
-            finally:
                 # increase the count when retrieve event fails
                 retry += 1
                 logger.debug(f'Retry {retry}: {address}')
+            finally:
                 if retry > retry_max:
-                    logger.critical(f'{address} aborted!!! Too many failures!')
+                    logger.critical(f'{address} aborted!!! Too many failures!!!')
                     next_page = False
                     # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
                     job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
@@ -518,6 +521,7 @@ if __name__ == '__main__':
         globals()["add_thread%s" % n] = Thread(target=controlfunc,
                                                args=(process_run, key_, job_chunks[n], output_dir))
         globals()["add_thread%s" % n].start()
+        time.sleep(.5)
 
     for nn in range(thread_sz):
         globals()["add_thread%s" % nn].join()
