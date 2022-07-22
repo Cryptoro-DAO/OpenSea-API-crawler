@@ -216,7 +216,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 else, use next cursor
         API query parameters:
             account_address
-            asset_account_address
+            asset_contract_address
             event_type
             occurred_before
             occurred_after
@@ -254,10 +254,10 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
         # set base directory _dir and logger message header _msg for each job
         _dir = output_dir.rstrip('/')
         _msg = ''
-        for key in ['event_type', 'asset_account_address', 'account_address']:
+        for key in ['event_type', 'asset_contract_address', 'account_address']:
             if _param.get(key):
                 _dir = f'{_dir}/{key}-{_param[key]}'
-                _msg = f'/{key}: {_param[key][6:]}...'
+                _msg = f'{_msg}/{key}: {_param[key][:6]}...'
 
         logger.info(f'Starting job {m+1} of {len(job_params)}: {_param}')
 
