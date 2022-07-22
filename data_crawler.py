@@ -297,7 +297,6 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     page_num += 1
                     next_page -= 1
                 else:
-                    logger.info(f'{address} finished: {page_num - page_num_0 + 1} page(s)')
                     next_page = False
 
             except requests.exceptions.HTTPError as err:
@@ -328,7 +327,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
                     status = (address, job_params[m:])
 
-        logger.info(f'Job {m+1} of {len(job_params)} ended.')
+        logger.info(f'Job {m+1} of {len(job_params)} ended: {page_num - page_num_0 + 1} page(s)')
 
     return status
 
