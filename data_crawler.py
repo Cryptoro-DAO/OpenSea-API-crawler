@@ -255,7 +255,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
         _dir = output_dir.rstrip('/')
         _msg = ''
         for key in ['event_type', 'asset_account_address', 'account_address']:
-            if _param[key]:
+            if _param.get(key):
                 _dir = f'{_dir}/{key}-{_param[key]}'
                 _msg = f'/{key}: {_param[key][6:]}...'
 
