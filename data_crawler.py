@@ -234,11 +234,11 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
     if output_dir is None:
         output_dir = os.path.join(os.getcwd(), 'tmp')
 
-    retry = 0
     status = 'success'
-    _cursor = ''
 
     for m, _param in enumerate(job_params):
+
+        # validate params and set default value
         n_request = _param.get('n_request', 1)
         if n_request != n_request:
             n_request = 1
@@ -270,8 +270,11 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 address_filter = ''
                 address = ''
 
-        logger.info(f'Starting job {m+1} of {len(job_params)}')
+        logger.info(f'Starting job {m+1} of {len(job_params)}: {_param}')
 
+        _cursor = ''
+        retry = 0
+        page_num_0 = page_num
         next_page = n_request
         while next_page:
             try:
@@ -289,15 +292,12 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     _cursor = events['previous']
                 else:
                     _cursor = events['next']
-                if _cursor is not None:
                     _param['cursor'] = _cursor
+                if _cursor is not None:
                     page_num += 1
                     next_page -= 1
                 else:
-                    # TODO: this message counter is incorrect of page_number doesn't start with 1
-                    logger.info(f'{address} finished: {page_num} page(s)')
-                    _param['cursor'] = None
-                    _cursor = ''
+                    logger.info(f'{address} finished: {page_num - page_num_0 + 1} page(s)')
                     next_page = False
 
             except requests.exceptions.HTTPError as err:
