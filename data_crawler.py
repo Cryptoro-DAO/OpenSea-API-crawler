@@ -281,7 +281,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     _cursor = events['previous']
                 else:
                     _cursor = events['next']
-                    _param['cursor'] = _cursor
+                _param['cursor'] = _cursor
                 if _cursor is not None:
                     page_num += 1
                     next_page -= 1
@@ -485,14 +485,16 @@ if __name__ == '__main__':
     api_key1, api_key2 : If a key not provided, the module calls testnets-api
     """
     # Read a list of wallet addresses or NFT contract addresses from file
-    fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
-    # fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
-    jobs = pd.read_csv(fn).to_dict('records')
+    # fn = os.path.join(os.getcwd(), 'wallet_addresses.csv')
+    fn = os.path.join(os.getcwd(), 'NFT_20_list.csv')
+    jobs = pd.read_csv(fn)
+    jobs['n_request'] = 3
+    jobs = jobs.to_dict('records')
 
-    chunk_size = 1
+    chunk_size = 7
     range_s = 0
-    range_e = 4
-    # a list of 4 elements range(0, 4) with chunk_size of 1 will create 4 threads
+    range_e = 21
+    # a list of 21 elements range(0, 21) with chunk_size of 7 will create 3 threads
     job_chunks = list(chunks(jobs[range_s:range_e], chunk_size))
 
     output_dir = os.path.join(os.getcwd(), 'tmp')
