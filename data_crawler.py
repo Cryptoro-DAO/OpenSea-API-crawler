@@ -251,24 +251,13 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
         if ascending != ascending:
             ascending = False
 
-        # set base directory _dir for each job
+        # set base directory _dir and logger message header _msg for each job
         _dir = output_dir.rstrip('/')
+        _msg = ''
         for key in ['event_type', 'asset_account_address', 'account_address']:
             if _param[key]:
                 _dir = f'{_dir}/{key}-{_param[key]}'
-
-        # @TODO: refactor this to append both account_address and asset_contract_address
-        # check type of addresses {'account_address', 'asset_contract_address'}
-        # to use in output directory name
-        for param, value in _param.items():
-            if param in ['account_address', 'asset_contract_address']:
-                address_filter = param
-                address = value
-                # @TODO: fix this; once set, don't continue to iterate but I want to be able to set more than one value
-                break
-            else:
-                address_filter = ''
-                address = ''
+                _msg = f'/{key}: {_param[key][6:]}...'
 
         logger.info(f'Starting job {m+1} of {len(job_params)}: {_param}')
 
@@ -282,7 +271,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
 
                 # save each response JSON as a separate, compressed file
                 save_response_json(events, _dir, f'{page_num}.json.gz')
-                logger.debug(f'saved {address_filter}: {address}, page: {page_num}')
+                logger.debug(f'saved {_msg}, page: {page_num}')
 
                 # decrease count when retrieve_events is successful
                 if retry > 0:
@@ -308,7 +297,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     time.sleep(6)  # @TODO: make the sleep time adjustable?
                 # increase the count when retrieve event fails
                 retry += 1
-                logger.debug(f'Retry {retry}: {address}')
+                logger.debug(f'Retry {retry}: {_msg}')
             except requests.exceptions.RequestException as e:
                 # @TODO: requests.exceptions.SSLError:
                 #   HTTPSConnectionPool(host='api.opensea.io', port=443):
@@ -318,14 +307,14 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 logger.error(repr(e))
                 # increase the count when retrieve event fails
                 retry += 1
-                logger.debug(f'Retry {retry}: {address}')
+                logger.debug(f'Retry {retry}: {_msg}')
             finally:
                 if retry > retry_max:
-                    logger.critical(f'{address} aborted!!! Too many failures!!!')
+                    logger.critical(f'{_msg} aborted!!! Too many failures!!!')
                     next_page = False
-                    # 記錄運行至檔案的哪一筆中斷與當前的cursor參數(next_param)
+                    # update job progress at the point of exception
                     job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-                    status = (address, job_params[m:])
+                    status = (_msg, job_params[m:])
 
         logger.info(f'Job {m+1} of {len(job_params)} ended: {page_num - page_num_0 + 1} page(s)')
 
