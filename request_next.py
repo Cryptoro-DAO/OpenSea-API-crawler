@@ -29,12 +29,15 @@ with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
     api_key1 = secrets['api_key1']
     api_key2 = secrets['api_key2']
 
-jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv')).to_dict('records')
+jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next_retry.csv'))
+jobs['collection_slug'] = [os.path.basename(url) for url in jobs.collection_url]
+jobs.drop(columns='asset_contract_address', inplace=True)
+jobs = jobs.to_dict('records')
 
 chunk_size = 1
-range_s = 19
-range_e = 21
-# a list of 4 elements range(0, 6) with chunk_size of 1 will create 6 threads
+range_s = 0
+range_e = 3
+# a list of 3 elements range(0, 3) with chunk_size of 1 will create 3 threads
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
 output_dir = os.path.join(os.getcwd(), 'tmp')

@@ -1,0 +1,4 @@
+collection,collection_url,collection_address,asset_contract_address,ascending,cursor,page_num,n_request,limit,comment
+ZED RUN Legacy,https://opensea.io/collection/zed-run-legacy,0xA5F1Ea7DF861952863dF2e8d1312f7305dabf215,0xA5F1Ea7DF861952863dF2e8d1312f7305dabf215,FALSE,,1,10000,300,polygon contract assess; data available on OpenSea but must retrieve with collection_slug
+RTFKT - CloneX Mintvial,https://opensea.io/collection/clonex-mintvial,0x348FC118bcC65a92dC033A951aF153d14D945312,0x348FC118bcC65a92dC033A951aF153d14D945312,FALSE,,1,10000,300,job failed; retry this
+Robotos,https://opensea.io/collection/robotos-official,0x099689220846644F87D1137665CDED7BF3422747,0x099689220846644F87D1137665CDED7BF3422747,FALSE,,1,10000,300,job failed; retry this

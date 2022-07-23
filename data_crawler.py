@@ -254,16 +254,15 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
         # set base directory _dir and logger message header _msg for each job
         _dir = output_dir.rstrip('/')
         _msg = ''
-        for key in ['event_type', 'asset_contract_address', 'account_address']:
+        for key in ['event_type', 'collection_slug', 'asset_contract_address', 'account_address']:
             if _param.get(key):
-                _dir = f'{_dir}/{key}-{_param[key]}'
+                _dir = f'{_dir}/{key}={_param[key]}'
                 _msg = f'{_msg}/{key}: {_param[key][:6]}...'
 
         logger.info(f'Starting job {m+1} of {len(job_params)}: {_param}')
 
         _cursor = ''
         retry = 0
-        page_num_0 = page_num
         next_page = n_request
         while next_page:
             try:
@@ -316,7 +315,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
                     status = (_msg, job_params[m:])
 
-        logger.info(f'Job {m+1} of {len(job_params)} ended: {page_num - page_num_0 + 1} page(s)')
+        logger.info(f'Job {m+1} of {len(job_params)} ended: {page_num - next_page - 1} page(s)')
 
     return status
 
