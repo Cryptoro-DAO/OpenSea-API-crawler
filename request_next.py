@@ -29,7 +29,7 @@ with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
     api_key1 = secrets['api_key1']
     api_key2 = secrets['api_key2']
 
-jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next_retry.csv'))
+jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
 jobs['collection_slug'] = [os.path.basename(url) for url in jobs.collection_url]
 jobs.drop(columns='asset_contract_address', inplace=True)
 jobs = jobs.to_dict('records')
