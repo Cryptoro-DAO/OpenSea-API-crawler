@@ -6,21 +6,26 @@ The procedure reads the 2nd and the last json retrieved to update the page_num i
 import gzip
 import json
 import os
+import re
 import pandas as pd
 import s3fs
 
 
 jobs_nxt = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
 jobs_prv = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'))
+jobs_nxt_coll_slug = [os.path.basename(ea) for ea in jobs_nxt.collection_url]
 
-base_uri = 'opensea-sg/lz/asset_events/20220719/asset_contract_address/'
+# base_uri = 'opensea-sg/lz/asset_events/20220701/'
+base_uri = 'opensea-sg/lz/asset_events/20220719/'
+# base_uri = 'opensea-sg/lz/asset_events/20220719/asset_contract_address/'
 # base_uri = 'opensea-sg/lz/asset_events/asc-20220718T0947cst/' \
 #            'asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b/'
 fs = s3fs.S3FileSystem(anon=False)
 ls_uri = fs.ls(base_uri)
 for _uri in ls_uri:
-    if fs.isdir(_uri):
+    if fs.isdir(_uri) and re.search('collection_slug=', _uri):
         obj = [path for path in fs.ls(_uri)]
+        print(_uri)
         print('number of objs:', len(obj))
         # sort objects: 1.json.gz, 10.json.gz, 2.json.gz, 3.json.gz...
         i = [int(os.path.basename(ea)[:-len('.json.gz')]) for ea in obj]
@@ -30,14 +35,18 @@ for _uri in ls_uri:
             tail = f'{_uri}/{i[-1]}.json.gz'
             print('head:{}\ntail:{}'.format(head, tail))
 
-            asset_contract_address = os.path.basename(_uri)
-            i = jobs_nxt.asset_contract_address == asset_contract_address
+            _base = os.path.basename(_uri)
+            _match = re.match('collection_slug=', _base)
+            if _match:
+                i = [ea == _base[_match.end():] for ea in jobs_nxt_coll_slug]
+            else:
+                i = jobs_nxt.asset_contract_address == _base
 
-            # head = get previous
-            with fs.open(head, 'rb') as fread:
-                with gzip.open(fread) as gz:
-                    events = json.load(gz)
-            jobs_prv.loc[i, 'cursor'] = events['previous']
+            # # head = get previous
+            # with fs.open(head, 'rb') as fread:
+            #     with gzip.open(fread) as gz:
+            #         events = json.load(gz)
+            # jobs_prv.loc[i, 'cursor'] = events['previous']
 
             # tail = get next
             with fs.open(tail, 'rb') as fread:

@@ -34,13 +34,14 @@ jobs['collection_slug'] = [os.path.basename(url) for url in jobs.collection_url]
 jobs.drop(columns='asset_contract_address', inplace=True)
 jobs = jobs.to_dict('records')
 
-chunk_size = 1
+chunk_size = 26
 range_s = 0
-range_e = 3
-# a list of 3 elements range(0, 3) with chunk_size of 1 will create 3 threads
+range_e = 152
+# a list of 152 elements range(0, 152) with chunk_size of 25 will create 6 threads
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
 output_dir = os.path.join(os.getcwd(), 'tmp')
+# output_dir = 's3://opensea-sg/lz/asset_events/20220724/'
 
 start = dt.datetime.now()
 crawler.logger.info("Start")
