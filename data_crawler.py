@@ -313,7 +313,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     next_page = False
                     # update job progress at the point of exception
                     job_params[m].update({'cursor': _cursor, 'page_num': page_num, 'n_request': next_page})
-                    status = (_msg, job_params[m:])
+                    status = (_msg, job_params)
 
         logger.info(f'Job {m+1} of {len(job_params)} ended: {page_num - next_page - 1} page(s)')
 
