@@ -42,7 +42,7 @@ range_e = 140
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
 output_dir = os.path.join(os.getcwd(), 'tmp')
-# output_dir = 's3://opensea-sg/lz/asset_events/20220726/'
+# output_dir = 's3://opensea-sg/lz/asset_events/20220727/'
 
 start = dt.datetime.now()
 crawler.logger.info("Start")

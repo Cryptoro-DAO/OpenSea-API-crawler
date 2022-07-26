@@ -449,7 +449,7 @@ def controlfunc(func, api_key, job, output_dir=None, retry_max=10):
     retry_count = 0
     run = True
     while run:
-        s_f = func(api_key, job, output_dir)
+        s_f = func(api_key, job, output_dir, retry_max=50)
         if s_f == "success":
             if retry_count > 0:
                 retry_count -= 1
