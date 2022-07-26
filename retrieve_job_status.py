@@ -20,7 +20,8 @@ jobs_nxt_coll_slug = [os.path.basename(ea) for ea in jobs_nxt.collection_url]
 # base_uri = 'opensea-sg/lz/asset_events/20220719/asset_contract_address/'
 # base_uri = 'opensea-sg/lz/asset_events/asc-20220718T0947cst/' \
 #            'asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b/'
-base_uri = 'opensea-sg/lz/asset_events/20220724/'
+# base_uri = 'opensea-sg/lz/asset_events/20220724/'
+base_uri = 'opensea-sg/lz/asset_events/20220726/'
 fs = s3fs.S3FileSystem(anon=False)
 ls_uri = fs.ls(base_uri)
 for _uri in ls_uri:
