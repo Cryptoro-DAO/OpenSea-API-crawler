@@ -59,8 +59,7 @@ from delta.tables import *
 deltaTblEvents = DeltaTable.forName(spark, 'opensea_events')
 
 deltaTblEvents.alias('events') \
-  .merge(dfUpdates.alias('updates'),
-    'events.id = updates.id') \
+  .merge(dfUpdates.alias('updates'), 'events.id = updates.id') \
   .whenNotMatchedInsertAll() \
   .execute()
 
