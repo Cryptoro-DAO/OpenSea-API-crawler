@@ -11,7 +11,7 @@ import pandas as pd
 import s3fs
 
 
-jobs_nxt = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
+jobs_nxt = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'), index_col=0)
 jobs_prv = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'))
 jobs_nxt_coll_slug = [os.path.basename(ea) for ea in jobs_nxt.collection_url]
 
