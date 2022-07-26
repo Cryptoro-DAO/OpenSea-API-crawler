@@ -296,7 +296,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                     time.sleep(6)  # @TODO: make the sleep time adjustable?
                 # increase the count when retrieve event fails
                 retry += 1
-                logger.debug(f'Retry {retry}: {_msg}')
+                logger.error(f'Retry {retry}: {_msg}')
             except requests.exceptions.RequestException as e:
                 # @TODO: requests.exceptions.SSLError:
                 #   HTTPSConnectionPool(host='api.opensea.io', port=443):
@@ -306,7 +306,7 @@ def process_run(api_key, job_params, output_dir=None, retry_max=10):
                 logger.error(repr(e))
                 # increase the count when retrieve event fails
                 retry += 1
-                logger.debug(f'Retry {retry}: {_msg}')
+                logger.error(f'Retry {retry}: {_msg}')
             finally:
                 if retry > retry_max:
                     logger.critical(f'{_msg} aborted!!! Too many failures!!!')
