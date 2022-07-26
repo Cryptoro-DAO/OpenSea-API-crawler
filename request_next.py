@@ -30,18 +30,19 @@ with open(os.path.join(os.getcwd(), 'OpenSea.key')) as f:
     api_key2 = secrets['api_key2']
 
 jobs = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
+jobs = jobs[jobs.n_request > 0]
 jobs['collection_slug'] = [os.path.basename(url) for url in jobs.collection_url]
 jobs.drop(columns='asset_contract_address', inplace=True)
 jobs = jobs.to_dict('records')
 
-chunk_size = 26
+chunk_size = 24
 range_s = 0
-range_e = 152
-# a list of 152 elements range(0, 152) with chunk_size of 25 will create 6 threads
+range_e = 140
+# a list of 140 elements range(0, 140) with chunk_size of 24 will create 6 threads
 job_chunks = list(crawler.chunks(jobs[range_s:range_e], chunk_size))
 
 output_dir = os.path.join(os.getcwd(), 'tmp')
-# output_dir = 's3://opensea-sg/lz/asset_events/20220724/'
+# output_dir = 's3://opensea-sg/lz/asset_events/20220726/'
 
 start = dt.datetime.now()
 crawler.logger.info("Start")
