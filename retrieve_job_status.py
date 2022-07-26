@@ -16,14 +16,15 @@ jobs_prv = pd.read_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'
 jobs_nxt_coll_slug = [os.path.basename(ea) for ea in jobs_nxt.collection_url]
 
 # base_uri = 'opensea-sg/lz/asset_events/20220701/'
-base_uri = 'opensea-sg/lz/asset_events/20220719/'
+# base_uri = 'opensea-sg/lz/asset_events/20220719/'
 # base_uri = 'opensea-sg/lz/asset_events/20220719/asset_contract_address/'
 # base_uri = 'opensea-sg/lz/asset_events/asc-20220718T0947cst/' \
 #            'asset_contract_address/0x23581767a106ae21c074b2276D25e5C3e136a68b/'
+base_uri = 'opensea-sg/lz/asset_events/20220724/'
 fs = s3fs.S3FileSystem(anon=False)
 ls_uri = fs.ls(base_uri)
 for _uri in ls_uri:
-    if fs.isdir(_uri) and re.search('collection_slug=', _uri):
+    if fs.isdir(_uri):
         obj = [path for path in fs.ls(_uri)]
         print(_uri)
         print('number of objs:', len(obj))
@@ -60,6 +61,6 @@ for _uri in ls_uri:
         _bucket, _path, _ver_id = fs.split_path(_uri)
         print(os.path.basename(_path)[:-len('.json.gz')])
 
-jobs_nxt.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'), index=False)
-jobs_prv.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'), index=False)
+jobs_nxt.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_next.csv'))
+# jobs_prv.to_csv(os.path.join(os.getcwd(), 'data', 'jobs_get_previous.csv'), index=False)
 print('done')
