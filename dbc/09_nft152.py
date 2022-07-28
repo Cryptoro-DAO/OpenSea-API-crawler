@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %md
+# MAGIC %md # NFT152
 # MAGIC Initial load of event data of 152 NFT collections, i.e. nft152, retrieved from OpenSea.
 # MAGIC 
 # MAGIC Part # | Retrieved From | Total number of objects | Total size
@@ -19,6 +19,10 @@
 # COMMAND ----------
 
 # MAGIC %sh du -h /dbfs/mnt/opensea-sg/lz/asset_events/20220726
+
+# COMMAND ----------
+
+# MAGIC %md ## Load JSON and convert to Delta
 
 # COMMAND ----------
 
@@ -55,6 +59,10 @@ df_events.write.save(save_path, format='delta', mode='overwrite', partitionBy=['
 
 # COMMAND ----------
 
+# MAGIC %md ## Optimize Delta Table
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC OPTIMIZE '/tmp/nft152'
 
@@ -62,7 +70,23 @@ df_events.write.save(save_path, format='delta', mode='overwrite', partitionBy=['
 
 # MAGIC %sql
 # MAGIC 
-# MAGIC DESCRIBE HISTORY 'tmp/nft152'
+# MAGIC DESCRIBE HISTORY '/tmp/nft152'
+
+# COMMAND ----------
+
+df_events.rdd.getNumPartitions()
+
+# COMMAND ----------
+
+405619 - 56247 + 143 - 82278 + 400 - 115914 + 400
+
+# COMMAND ----------
+
+# MAGIC %md __Optimization result__: Started with 405,619 files. Ended with 152,123 files and 5,187 partitions.
+
+# COMMAND ----------
+
+# MAGIC %md # Dataset summary
 
 # COMMAND ----------
 
@@ -72,6 +96,22 @@ df_events.count() / 1e6
 # COMMAND ----------
 
 df_events.printSchema()
+
+# COMMAND ----------
+
+import pyspark.sql.functions as f
+df_events.groupby('collection_slug').count().orderBy(f.col('count').desc()).show(200)
+
+# COMMAND ----------
+
+# MAGIC %sql select count(distinct collection_slug) from delta.`/tmp/nft152`
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select collection_slug, count(event_type), max(event_timestamp), min(event_timestamp)
+# MAGIC   from delta.`/tmp/nft152`
+# MAGIC   group by collection_slug
 
 # COMMAND ----------
 
