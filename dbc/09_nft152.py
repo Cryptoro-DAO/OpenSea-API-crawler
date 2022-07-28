@@ -115,4 +115,13 @@ df_events.groupby('collection_slug').count().orderBy(f.col('count').desc()).show
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC create or replace view collection_slug_stat
+# MAGIC   as select collection_slug, count(id) as num_event, max(event_timestamp) as max_timestamp, min(event_timestamp) as min_timestamp
+# MAGIC     from delta.`/tmp/nft152`
+# MAGIC     group by collection_slug
 
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from collection_slug_stat
