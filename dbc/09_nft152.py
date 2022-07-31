@@ -42,6 +42,10 @@ df.count()
 
 # COMMAND ----------
 
+# MAGIC %md The count matches AWS.
+
+# COMMAND ----------
+
 # expand asset_events array
 from pyspark.sql.functions import explode
 df_events = df.select(explode(df.asset_events).alias('asset_event')) \
@@ -69,8 +73,37 @@ df_events.write.save(save_path, format='delta', mode='overwrite', partitionBy=['
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC 
 # MAGIC DESCRIBE HISTORY '/tmp/nft152'
+
+# COMMAND ----------
+
+ops_metics = _sqldf
+
+# COMMAND ----------
+
+import pyspark.sql.functions as f
+_sqldf.select(f.col('operationMetrics').getItem('numRemovedFiles').cast('int'))
+
+# COMMAND ----------
+
+psdf = _sqldf.to_pandas_on_spark()
+pdf = _sqldf.toPandas()
+
+# COMMAND ----------
+
+ops = pdf.from_dict([ea for ea in pdf['operationMetrics']])
+
+# COMMAND ----------
+
+ops_ = ops.fillna(0).astype('int').sum()
+
+# COMMAND ----------
+
+ops_.index
+
+# COMMAND ----------
+
+ops_.numFiles + ops_['numAddedFiles'] - ops_['numRemovedFiles']
 
 # COMMAND ----------
 
@@ -78,11 +111,7 @@ df_events.rdd.getNumPartitions()
 
 # COMMAND ----------
 
-405619 - 56247 + 143 - 82278 + 400 - 115914 + 400
-
-# COMMAND ----------
-
-# MAGIC %md __Optimization result__: Started with 405,619 files. Ended with 152,123 files and 5,187 partitions.
+# MAGIC %md __Optimization result__: Ran optimize twice. Started with 405,619 files. Ended with 1,350 files and 477 partitions.
 
 # COMMAND ----------
 
@@ -90,6 +119,7 @@ df_events.rdd.getNumPartitions()
 
 # COMMAND ----------
 
+save_path = '/tmp/nft152'
 df_events = spark.read.load(save_path)
 df_events.count() / 1e6
 
@@ -100,7 +130,7 @@ df_events.printSchema()
 # COMMAND ----------
 
 import pyspark.sql.functions as f
-df_events.groupby('collection_slug').count().orderBy(f.col('count').desc()).show(200)
+df_events.groupby('collection_slug').count().orderBy(f.col('count').desc()).display()
 
 # COMMAND ----------
 
