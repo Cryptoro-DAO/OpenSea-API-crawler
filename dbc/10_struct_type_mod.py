@@ -235,6 +235,74 @@ tgt_dt.alias('target') \
 
 # COMMAND ----------
 
+tgt_dt.toDF().count()
+
+# COMMAND ----------
+
+tgt_dt.toDF().drop_duplicates(subset=['id']).count()
+
+# COMMAND ----------
+
+# MAGIC %md # Deduping
+
+# COMMAND ----------
+
+df = spark.table('opensea_events')
+
+# COMMAND ----------
+
+psdf = df.to_pandas_on_spark()
+
+# COMMAND ----------
+
+bad = psdf.duplicated(['id'], False)
+
+# COMMAND ----------
+
+import pyspark.pandas as ps
+ps.get_option('compute.ops_on_diff_frames')
+
+# COMMAND ----------
+
+ps.set_option('compute.ops_on_diff_frames', True)
+
+# COMMAND ----------
+
+psdf.loc[[psdf.duplicated(['id'], False).to_numpy()], ['id', 'event_type', 'collection_slug']]
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select a.*
+# MAGIC   from opensea_events a
+# MAGIC   join (select id, count(*) as n
+# MAGIC     from opensea_events
+# MAGIC     group by id
+# MAGIC     having n > 1) b
+# MAGIC   on a.id = b.id
+
+# COMMAND ----------
+
+# DBTITLE 1,Save duplicates for more thorough investigation later
+dups = _sqldf
+dups.write.saveAsTable('opensea_events_dups', partitionBy=['event_type', 'collection_slug'])
+
+# COMMAND ----------
+
+dups['id', 'event_type', 'collection_slug', 'event_timestamp'].display()
+
+# COMMAND ----------
+
+dups.groupby('collection_slug', 'event_type').count()
+
+# COMMAND ----------
+
+psdf.drop_duplicates(['id']) \
+    .write \
+    .saveAsTable(target_table, mode='overwrite', partitionBy=['event_type', 'collection_slug'])
+
+# COMMAND ----------
+
 # MAGIC %md # Experiment: StructType
 
 # COMMAND ----------
@@ -300,10 +368,6 @@ tgt_df.filter(f'{problem_col}.{problem_fld_1} is not null') \
     .withColumn('col', f.when(f.col('col') == 'null', None).otherwise(f.col('col'))) \
     .withColumn('col', f.when(f.col('col') == '', None).otherwise(f.col('col'))) \
     .show(20, truncate=False)
-
-# COMMAND ----------
-
-df_src.filter(problem_col + '.from_account is not null').select('id', f.col(f'{problem_col}.from_account').alias('foo')).withColumn('bar', f.expr('substr(foo, 2, length(foo)-2)')).select('id', f.posexplode_outer(f.split('bar', ','))).show(20,truncate=False)
 
 # COMMAND ----------
 
